@@ -1,45 +1,30 @@
 {
-  "name": "plugin-sample",
-  "author": "Vanessa",
-  "url": "https://github.com/siyuan-note/plugin-sample",
-  "version": "0.3.0",
+  "name": "siyuan-auto-seq-number",
+  "author": "Logic Tan",
+  "url": "https://github.com/dale0525/siyuan-auto-seq-number",
+  "version": "0.1.0",
   "minAppVersion": "2.11.1",
   "backends": [
-    "windows",
-    "linux",
-    "darwin",
-    "ios",
-    "android"
+    "all"
   ],
   "frontends": [
-    "desktop",
-    "mobile",
-    "browser-desktop",
-    "browser-mobile",
-    "desktop-window"
+    "all"
   ],
   "displayName": {
-    "default": "Plugin Sample",
-    "zh_CN": "插件示例"
+    "default": "SiYuan Auto Sequence Number Plugin",
+    "zh_CN": "思源笔记序号插件"
   },
   "description": {
-    "default": "This is a plugin sample",
-    "zh_CN": "这是一个插件示例"
+    "default": "A SiYuan Plugin to auto generate sequence number for titles",
+    "zh_CN": "自动为标题生成序号的思源笔记插件"
   },
   "readme": {
     "default": "README.md",
     "zh_CN": "README_zh_CN.md"
   },
-  "funding": {
-    "openCollective": "",
-    "patreon": "",
-    "github": "",
-    "custom": [
-      "https://ld246.com/sponsor"
-    ]
-  },
   "keywords": [
-    "sample",
-    "示例"
+    "序号",
+    "标题",
+    "title"
   ]
 }
