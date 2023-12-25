@@ -33,12 +33,7 @@ jobs:
           echo "Release $current_version already exists. Nothing to do."
           exit 0
         fi
-        echo "No release found for version $current_version."
 
-    - name: Create Release
-      if: steps.check_release.outputs.result == 'failure'
-      id: create_release
-      run: |
         current_version="${{ steps.version.outputs.version }}"
         commit_message=$(git log -1 --pretty=%B)
         release_title="v$current_version"
@@ -46,9 +41,6 @@ jobs:
         release_id=$(curl -s -X POST -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" -d "{\"tag_name\": \"$release_title\", \"name\": \"$release_title\", \"body\": \"$commit_message\"}" "https://api.github.com/repos/${{ github.repository }}/releases" | jq -r '.id')
         echo "::set-output name=release_id::$release_id"
 
-    - name: Upload Release Binary
-      if: steps.create_release.outputs.release_id
-      run: |
         release_id="${{ steps.create_release.outputs.release_id }}"
         zip_path="${{ steps.zip_package.outputs.zip_path }}"
         echo "Uploading binary to release $release_id"
