@@ -1,35 +1,57 @@
 import {
     Plugin,
 } from "siyuan";
+import "./index.scss";
 
 export default class AutoSeqNumPlugin extends Plugin {
 
-    onLoadedProtyleBindThis = this.onLoadedProtyle.bind(this);
+    private seq_num: Object = {};
+
+    onLoadedProtyleStaticBindThis = this.onLoadedProtyleStatic.bind(this);
+    onSwitchProtyleBindThis = this.onSwitchProtyle.bind(this);
 
     onload() {
-        this.eventBus.on("switch-protyle", this.onLoadedProtyleBindThis);
+        this.eventBus.on("loaded-protyle-static", this.onLoadedProtyleStaticBindThis);
+        this.eventBus.on("switch-protyle", this.onSwitchProtyleBindThis);
     }
 
     onunload() {
-        this.eventBus.off("switch-protyle", this.onLoadedProtyleBindThis);
+        this.eventBus.off("loaded-protyle-static", this.onLoadedProtyleStaticBindThis);
+        this.eventBus.off("switch-protyle", this.onSwitchProtyleBindThis);
     }
 
-    async onLoadedProtyle({detail}: any){
-        let pageHtml = detail.protyle.element;
-        // console.log(pageHtml);
-        if (pageHtml.getAttribute('seq-num') === 'true') {
-            return;
-        }
+    async onSwitchProtyle({detail}: any){
+        sessionStorage.removeItem('seq-num');
+    }
 
+    async onLoadedProtyleStatic({detail}: any){
+        let pageHtml = detail.protyle.element;
+        this.addSeqNum(pageHtml);
+    }
+
+    addSeqNum(html: any) {
         // 初始化计数器
         let counters = [0, 0, 0, 0, 0, 0];
 
         // 获取所有标题元素
-        let headers = pageHtml.querySelectorAll('.h1, .h2, .h3, .h4, .h5, .h6');
-        // console.log(headers);
+        let headers = html.querySelectorAll('.protyle-wysiwyg [data-node-id].h1, .protyle-wysiwyg [data-node-id].h2, .protyle-wysiwyg [data-node-id].h3, .protyle-wysiwyg [data-node-id].h4, .protyle-wysiwyg [data-node-id].h5, .protyle-wysiwyg [data-node-id].h6');
+        
+        let seq_num_storage = sessionStorage.getItem('seq-num');
+        if(seq_num_storage !== null) {
+            this.seq_num = JSON.parse(seq_num_storage);
+        }
 
         // 遍历所有标题元素
         for (let i = 0; i < headers.length; i++) {
+            const element_id = headers[i].getAttribute('data-node-id');
+            if(element_id === null) {
+                continue;
+            }
+            if (this.seq_num[element_id] !== undefined) {
+                headers[i].setAttribute('seq-num', this.seq_num[element_id]);
+                continue;
+            }
+
             // 获取当前标题的级别
             let level = parseInt(headers[i].className.charAt(1));
 
@@ -56,10 +78,10 @@ export default class AutoSeqNumPlugin extends Plugin {
                 number = number.substring(0, number.length - 1);
             }
 
-            // 在标题前添加编号
-            headers[i].innerText = headers[i].innerText.replace('\n', '');
-            headers[i].innerText = number + ' ' + headers[i].innerText;
+            // 设置dom元素的编号属性，通过css伪类来显示编号
+            headers[i].setAttribute('seq-num', number);
+            this.seq_num[element_id] = number;
         }
-        pageHtml.setAttribute('seq-num', 'true');
+        sessionStorage.setItem('seq-num', JSON.stringify(this.seq_num));
     }
 }
