@@ -10,7 +10,7 @@ Just turn on the plugin, and refresh the page.
 - The sequence number is only rendered in SiYuan Note but will not change the original article, so the numbers will not be exported to other formats.
 
 ## Change Log
-### 0.3.0
+### 1.0.0
 - add settings to customize the sequence number for each level of header
 - future updates will be paused unless there are bugs
 
