@@ -65,22 +65,10 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
         run: pnpm install
 
-      # Prepare new version
-      # https://github.com/google-github-actions/release-please-action#outputs
-      - name: Prepare new version
-        if: ${{ steps.release.outputs.release_created }}
-        run: |
-          pnpm prepareRelease
-
       # Build for production
       - name: Build for production
         if: ${{ steps.release.outputs.release_created }}
-        run: pnpm build
-
-      # Archive package
-      - name: Archive package
-        if: ${{ steps.release.outputs.release_created }}
-        run: pnpm package
+        run: pnpm run build
 
       # Upload package to release
       # https://github.com/philips-labs/terraform-aws-github-runner/blob/main/.github/workflows/release.yml#L46
@@ -89,7 +77,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          ls -l ./build
-          for f in $(find ./build -name '*.zip'); do
-            gh release upload ${{ steps.release.outputs.tag_name }} $f
-          done
+          gh release upload ${{ steps.release.outputs.tag_name }} "package.zip"
