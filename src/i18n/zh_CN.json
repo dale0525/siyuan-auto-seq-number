@@ -1,2 +1,14 @@
 {
+    "seqNumSettingLevel1": "第一级标题",
+    "seqNumSettingLevel2": "第二级标题",
+    "seqNumSettingLevel3": "第三级标题",
+    "seqNumSettingLevel4": "第四级标题",
+    "seqNumSettingLevel5": "第五级标题",
+    "seqNumSettingLevel6": "第六级标题",
+    "seqNumLevel1Note": "如无h1，则h2为第一级标题；以此类推",
+    "seqNumSettingFormat": "格式",
+    "seqNumSettingNum2Chi": "数字转中文",
+    "resetConfig": "重置配置",
+    "resetConfigDesc": "重置后将恢复默认配置并重新加载页面",
+    "resetBtn": "重置"
 }

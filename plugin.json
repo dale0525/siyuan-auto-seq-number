@@ -2,7 +2,7 @@
   "name": "siyuan-auto-seq-number",
   "author": "Logic Tan",
   "url": "https://github.com/dale0525/siyuan-auto-seq-number",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "minAppVersion": "2.11.1",
   "backends": [
     "all"
@@ -11,11 +11,11 @@
     "all"
   ],
   "displayName": {
-    "default": "SiYuan Auto Sequence Number Plugin",
-    "zh_CN": "思源笔记序号插件"
+    "default": "Auto Header Sequence Number",
+    "zh_CN": "自动标题序号"
   },
   "description": {
-    "default": "A SiYuan Plugin to auto generate sequence number for titles",
+    "default": "A SiYuan Plugin to auto generate sequence number for headers",
     "zh_CN": "自动为标题生成序号的思源笔记插件"
   },
   "readme": {
@@ -25,6 +25,6 @@
   "keywords": [
     "序号",
     "标题",
-    "title"
+    "header"
   ]
 }

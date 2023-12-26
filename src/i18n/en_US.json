@@ -1,2 +1,14 @@
 {
+    "seqNumSettingLevel1": "Level 1 Heading",
+    "seqNumSettingLevel2": "Level 2 Heading",
+    "seqNumSettingLevel3": "Level 3 Heading",
+    "seqNumSettingLevel4": "Level 4 Heading",
+    "seqNumSettingLevel5": "Level 5 Heading",
+    "seqNumSettingLevel6": "Level 6 Heading",
+    "seqNumLevel1Note": "If there is no h1, h2 will be used",
+    "seqNumSettingFormat": "Format",
+    "seqNumSettingNum2Chi": "Number to Chinese",
+    "resetConfig": "Reset Config",
+    "resetConfigDesc": "Reset all settings to default. The page will be reloaded.",
+    "resetBtn": "Reset"
 }

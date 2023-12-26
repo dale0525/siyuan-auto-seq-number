@@ -1,7 +1,7 @@
 {
     "name": "siyuan-auto-seq-number",
-    "version": "0.2.1",
-    "description": "A SiYuan Plugin to auto generate sequence number for titles",
+    "version": "0.3.0",
+    "description": "A SiYuan Plugin to auto generate sequence number for headers",
     "main": ".src/index.js",
     "scripts": {
       "lint": "eslint . --fix --cache",
