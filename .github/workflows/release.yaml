@@ -18,8 +18,11 @@ jobs:
       with:
         node-version: '20'
 
-    - name: Install Dependencies
-      run: npm install -g pnpm && pnpm install && pnpm run build
+    - name: Install Dependencies and Build
+      id: build
+      run: |
+        npm install -g pnpm && pnpm install && pnpm run build
+        echo "::set-output name=zip_path::$(pwd)/package.zip"
 
     - name: Get Current Version
       id: version
@@ -34,14 +37,11 @@ jobs:
           exit 0
         fi
 
-        current_version="${{ steps.version.outputs.version }}"
         commit_message=$(git log -1 --pretty=%B)
         release_title="v$current_version"
         echo "Creating release $release_title"
         release_id=$(curl -s -X POST -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" -d "{\"tag_name\": \"$release_title\", \"name\": \"$release_title\", \"body\": \"$commit_message\"}" "https://api.github.com/repos/${{ github.repository }}/releases" | jq -r '.id')
-        echo "::set-output name=release_id::$release_id"
 
-        release_id="${{ steps.create_release.outputs.release_id }}"
-        zip_path="${{ steps.zip_package.outputs.zip_path }}"
+        zip_path="${{ steps.build.outputs.zip_path }}"
         echo "Uploading binary to release $release_id"
         curl -s -X POST -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" -H "Content-Type: application/zip" --data-binary "@$zip_path" "https://uploads.github.com/repos/${{ github.repository }}/releases/$release_id/assets?name=package.zip"
