@@ -1,6 +1,6 @@
 {
     "name": "siyuan-auto-seq-number",
-    "version": "0.3.0",
+    "version": "1.0.0",
     "description": "A SiYuan Plugin to auto generate sequence number for headers",
     "main": ".src/index.js",
     "scripts": {
