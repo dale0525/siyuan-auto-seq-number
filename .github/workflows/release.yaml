@@ -42,8 +42,4 @@ jobs:
         commit_message=$(git log -1 --pretty=%B)
         release_title="v$current_version"
         echo "Creating release $release_title"
-        release_id=$(curl -s -X POST -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" -d "{\"tag_name\": \"$release_title\", \"name\": \"$release_title\", \"body\": \"$commit_message\"}" "https://api.github.com/repos/${{ github.repository }}/releases" | jq -r '.id')
-
-        zip_path="${{ steps.build.outputs.zip_path }}"
-        echo "Uploading binary to release $release_id"
-        gh release upload $release_title $zip_path
+        gh release create $release_title ${{ steps.build.outputs.zip_path }} -t $release_title -n "$commit_message"
