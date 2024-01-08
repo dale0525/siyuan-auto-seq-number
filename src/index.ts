@@ -10,14 +10,6 @@ const DEFAULT_CONFIG = {
     seqNum: ["{1}. ", "{1}.{2} ", "{1}.{2}.{3} ", "{1}.{2}.{3}.{4} ", "{1}.{2}.{3}.{4}.{5} ", "{1}.{2}.{3}.{4}.{5}.{6} "],
     num2Chi: [false, false, false, false, false, false],
 };
-const NUM_2_CHI = {
-    "1": "一",
-    "2": "二",
-    "3": "三",
-    "4": "四",
-    "5": "五",
-    "6": "六",
-};
 
 export default class AutoSeqNumPlugin extends Plugin {
 
@@ -34,7 +26,7 @@ export default class AutoSeqNumPlugin extends Plugin {
         if (typeof this.data[STORAGE_NAME] !== "object" || this.data[STORAGE_NAME].hasOwnProperty("seqNum") === false || this.data[STORAGE_NAME].hasOwnProperty("num2Chi") === false) {
             await this.saveData(STORAGE_NAME, DEFAULT_CONFIG);
         }
-        
+
         // 增加设置项
         const inputElements = [
             document.createElement("input"),
@@ -93,16 +85,16 @@ export default class AutoSeqNumPlugin extends Plugin {
         this.eventBus.off("switch-protyle", this.onSwitchProtyleBindThis);
     }
 
-    async onSwitchProtyle({detail}: any){
+    async onSwitchProtyle({ detail }: any) {
         sessionStorage.removeItem(STORAGE_NAME);
     }
 
-    async onLoadedProtyleStatic({detail}: any){
+    async onLoadedProtyleStatic({ detail }: any) {
         let pageHtml = detail.protyle.element;
         this.addSeqNum(pageHtml);
     }
 
-    async resetOptions(){
+    async resetOptions() {
         confirm(
             this.i18n.resetConfig,
             this.i18n.resetConfigDesc,
@@ -158,6 +150,34 @@ export default class AutoSeqNumPlugin extends Plugin {
         return span;
     }
 
+    num2Chi(numStr: string) {
+        let num = parseInt(numStr);
+        const chineseNumerals = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+        const unitPositions = ["", "十", "百"];
+
+        let result = "";
+
+        // 将数字转为字符串，便于遍历每一位
+        for (let i = 0; i < numStr.length; i++) {
+            const digit = parseInt(numStr[i]);
+
+            // 处理零
+            if (digit !== 0) {
+                result += chineseNumerals[digit] + unitPositions[numStr.length - i - 1];
+            } else {
+                // 连续多个零时，只保留一个零
+                if (result.charAt(result.length - 1) !== "零") {
+                    result += "零";
+                }
+            }
+        }
+
+        // 去除末尾的零
+        result = result.replace(/零+$/, "");
+
+        return result;
+    }
+
     addSeqNum(html: any) {
         // 初始化计数器
         let counters = [0, 0, 0, 0, 0, 0];
@@ -165,16 +185,16 @@ export default class AutoSeqNumPlugin extends Plugin {
 
         // 获取所有标题元素
         let headers = html.querySelectorAll('.protyle-wysiwyg [data-node-id].h1, .protyle-wysiwyg [data-node-id].h2, .protyle-wysiwyg [data-node-id].h3, .protyle-wysiwyg [data-node-id].h4, .protyle-wysiwyg [data-node-id].h5, .protyle-wysiwyg [data-node-id].h6');
-        
+
         let seq_num_storage = sessionStorage.getItem(STORAGE_NAME);
-        if(seq_num_storage !== null) {
+        if (seq_num_storage !== null) {
             this.seq_num = JSON.parse(seq_num_storage);
         }
 
         // 遍历所有标题元素
         for (let i = 0; i < headers.length; i++) {
             const element_id = headers[i].getAttribute('data-node-id');
-            if(element_id === null) {
+            if (element_id === null) {
                 continue;
             }
             if (this.seq_num[element_id] !== undefined) {
@@ -196,8 +216,7 @@ export default class AutoSeqNumPlugin extends Plugin {
             // 获取有效标题级别数量
             let trueLevel = 0;
             for (let j = 0; j <= level; j++) {
-                if (counters[j] > 0)
-                {
+                if (counters[j] > 0) {
                     trueCounters.push(counters[j]);
                     trueLevel++;
                 }
@@ -207,7 +226,7 @@ export default class AutoSeqNumPlugin extends Plugin {
             let settingsNum = this.data[STORAGE_NAME].seqNum[trueLevel - 1];
             let num2Chi = this.data[STORAGE_NAME].num2Chi[trueLevel - 1];
             for (let j = 0; j < trueLevel; j++) {
-                settingsNum = settingsNum.replace(`{${j + 1}}`, num2Chi ? NUM_2_CHI[trueCounters[j].toString()] : trueCounters[j]).replace(" ", "\u00a0");
+                settingsNum = settingsNum.replace(`{${j + 1}}`, num2Chi ? this.num2Chi(trueCounters[j].toString()) : trueCounters[j]).replace(" ", "\u00a0");
             }
 
             // 设置dom元素的编号属性，通过css伪类来显示编号
