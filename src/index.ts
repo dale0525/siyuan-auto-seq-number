@@ -1,11 +1,12 @@
-import {
-    Plugin,
-    Setting,
-    showMessage,
-} from "siyuan";
+import { Plugin, Setting, showMessage } from "siyuan";
 import { setCursorToEnd } from "./utils/dom_operate";
 import { IPluginConfig } from "./types";
-import { generateHeaderNumber, getHeaderLevel, hasHeaderNumber, removeHeaderNumber } from "./utils/header_utils";
+import {
+    generateHeaderNumber,
+    getHeaderLevel,
+    hasHeaderNumber,
+    removeHeaderNumber,
+} from "./utils/header_utils";
 import { batchUpdateBlockContent } from "./utils/api";
 import "./style.scss";
 
@@ -15,17 +16,17 @@ const STORAGE_NAME = "auto-seq-number";
 // 默认配置
 const DEFAULT_CONFIG: IPluginConfig = {
     formats: [
-        "{1}. ",      // h1
-        "{1}.{2} ",   // h2
+        "{1}. ", // h1
+        "{1}.{2} ", // h2
         "{1}.{2}.{3} ", // h3
         "{1}.{2}.{3}.{4} ", // h4
         "{1}.{2}.{3}.{4}.{5} ", // h5
-        "{1}.{2}.{3}.{4}.{5}.{6} " // h6
+        "{1}.{2}.{3}.{4}.{5}.{6} ", // h6
     ],
     useChineseNumbers: [false, false, false, false, false, false],
     defaultEnabled: true,
     realTimeUpdate: false,
-    docEnableStatus: {}
+    docEnableStatus: {},
 };
 
 export default class HeaderNumberPlugin extends Plugin {
@@ -46,38 +47,38 @@ export default class HeaderNumberPlugin extends Plugin {
         this.setting = new Setting({
             confirmCallback: () => {
                 this.saveConfig();
-            }
+            },
         });
 
-        const settingsContainer = document.createElement('div');
-        settingsContainer.className = 'auto-seq-number-settings';
+        const settingsContainer = document.createElement("div");
+        settingsContainer.className = "auto-seq-number-settings";
 
         // 添加全局启用设置
         this.setting.addItem({
             title: this.i18n.defaultEnabled,
             description: this.i18n.defaultEnabledDesc,
             createActionElement: () => {
-                const container = document.createElement('div');
-                container.className = 'setting-item';
+                const container = document.createElement("div");
+                container.className = "setting-item";
 
-                const checkboxWrapper = document.createElement('div');
-                checkboxWrapper.className = 'checkbox-wrapper';
-                
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
+                const checkboxWrapper = document.createElement("div");
+                checkboxWrapper.className = "checkbox-wrapper";
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
                 checkbox.checked = this.config.defaultEnabled;
-                checkbox.addEventListener('change', () => {
+                checkbox.addEventListener("change", () => {
                     this.config.defaultEnabled = checkbox.checked;
                 });
 
-                const label = document.createElement('label');
+                const label = document.createElement("label");
                 label.textContent = this.i18n.defaultEnabled;
 
                 checkboxWrapper.appendChild(checkbox);
                 checkboxWrapper.appendChild(label);
                 container.appendChild(checkboxWrapper);
                 return container;
-            }
+            },
         });
 
         // 添加实时更新设置
@@ -85,58 +86,61 @@ export default class HeaderNumberPlugin extends Plugin {
             title: this.i18n.realTimeUpdate,
             description: this.i18n.realTimeUpdateDesc,
             createActionElement: () => {
-                const container = document.createElement('div');
-                container.className = 'setting-item';
+                const container = document.createElement("div");
+                container.className = "setting-item";
 
-                const checkboxWrapper = document.createElement('div');
-                checkboxWrapper.className = 'checkbox-wrapper';
-                
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
+                const checkboxWrapper = document.createElement("div");
+                checkboxWrapper.className = "checkbox-wrapper";
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
                 checkbox.checked = this.config.realTimeUpdate;
-                checkbox.addEventListener('change', () => {
+                checkbox.addEventListener("change", () => {
                     this.config.realTimeUpdate = checkbox.checked;
                 });
 
-                const label = document.createElement('label');
+                const label = document.createElement("label");
                 label.textContent = this.i18n.realTimeUpdate;
 
                 checkboxWrapper.appendChild(checkbox);
                 checkboxWrapper.appendChild(label);
                 container.appendChild(checkboxWrapper);
                 return container;
-            }
+            },
         });
-        
+
         // 添加标题级别设置
         for (let i = 0; i < 6; i++) {
             this.setting.addItem({
-                title: this.i18n.headerFormat.replace('{1}', (i + 1).toString()),
-                description: i === 0 ? this.i18n.headerFormatDesc : '',
+                title: this.i18n.headerFormat.replace(
+                    "{1}",
+                    (i + 1).toString()
+                ),
+                description: i === 0 ? this.i18n.headerFormatDesc : "",
                 createActionElement: () => {
-                    const container = document.createElement('div');
-                    container.className = 'setting-item';
-                    
-                    const input = document.createElement('input');
-                    input.type = 'text';
-                    input.className = 'format-input';
+                    const container = document.createElement("div");
+                    container.className = "setting-item";
+
+                    const input = document.createElement("input");
+                    input.type = "text";
+                    input.className = "format-input";
                     input.value = this.config.formats[i];
-                    input.placeholder = '例如: 第{1}章';
-                    input.addEventListener('change', () => {
+                    input.placeholder = "例如: 第{1}章";
+                    input.addEventListener("change", () => {
                         this.config.formats[i] = input.value;
                     });
 
-                    const checkboxWrapper = document.createElement('div');
-                    checkboxWrapper.className = 'checkbox-wrapper';
-                    
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
+                    const checkboxWrapper = document.createElement("div");
+                    checkboxWrapper.className = "checkbox-wrapper";
+
+                    const checkbox = document.createElement("input");
+                    checkbox.type = "checkbox";
                     checkbox.checked = this.config.useChineseNumbers[i];
-                    checkbox.addEventListener('change', () => {
+                    checkbox.addEventListener("change", () => {
                         this.config.useChineseNumbers[i] = checkbox.checked;
                     });
 
-                    const label = document.createElement('label');
+                    const label = document.createElement("label");
                     label.textContent = this.i18n.useChineseNumbers;
 
                     checkboxWrapper.appendChild(checkbox);
@@ -145,32 +149,40 @@ export default class HeaderNumberPlugin extends Plugin {
                     container.appendChild(input);
                     container.appendChild(checkboxWrapper);
                     return container;
-                }
+                },
             });
         }
-        
+
         // 添加重置按钮
         this.setting.addItem({
             title: this.i18n.resetConfig,
             description: this.i18n.resetConfigDesc,
             createActionElement: () => {
-                const button = document.createElement('button');
-                button.className = 'reset-button';
+                const button = document.createElement("button");
+                button.className = "reset-button";
                 button.textContent = this.i18n.resetBtn;
-                button.addEventListener('click', async () => {
+                button.addEventListener("click", async () => {
                     this.config = {
                         formats: [
-                            '{1}. ',
-                            '{1}.{2} ',
-                            '{1}.{2}.{3} ',
-                            '{1}.{2}.{3}.{4} ',
-                            '{1}.{2}.{3}.{4}.{5} ',
-                            '{1}.{2}.{3}.{4}.{5}.{6} '
+                            "{1}. ",
+                            "{1}.{2} ",
+                            "{1}.{2}.{3} ",
+                            "{1}.{2}.{3}.{4} ",
+                            "{1}.{2}.{3}.{4}.{5} ",
+                            "{1}.{2}.{3}.{4}.{5}.{6} ",
                         ],
-                        useChineseNumbers: [false, false, false, false, false, false],
+                        useChineseNumbers: [
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                            false,
+                        ],
                         defaultEnabled: true,
                         realTimeUpdate: false,
-                        docEnableStatus: this.data[STORAGE_NAME].docEnableStatus,   //不删除保存的单独文档设置
+                        docEnableStatus:
+                            this.data[STORAGE_NAME].docEnableStatus, //不删除保存的单独文档设置
                     };
                     await this.saveConfig();
                     showMessage(this.i18n.settingsResetSuccess);
@@ -178,12 +190,12 @@ export default class HeaderNumberPlugin extends Plugin {
                 });
 
                 return button;
-            }
+            },
         });
 
         // 初始化状态栏
         this.initStatusBar();
-        
+
         // 初始化顶部工具栏
         this.initTopBar();
 
@@ -231,7 +243,7 @@ export default class HeaderNumberPlugin extends Plugin {
         this.statusElement.className = "status__counter";
         this.statusElement.innerHTML = this.i18n.statusDisabled;
         this.addStatusBar({
-            element: this.statusElement
+            element: this.statusElement,
         });
     }
 
@@ -268,7 +280,7 @@ export default class HeaderNumberPlugin extends Plugin {
                     showMessage(this.i18n.numberingEnabled);
                     this.enableDoc(this.activeDocId);
                 }
-            }
+            },
         });
     }
 
@@ -280,12 +292,13 @@ export default class HeaderNumberPlugin extends Plugin {
         if (this.isDocEnabled(this.activeDocId)) {
             await this.updateDocNumbering(this.activeProtyle);
         }
-    }
+    };
 
     private onEdited = async (e: CustomEvent) => {
         this.lastInputTime = Date.now();
         if (!this.activeDocId) return;
-        if (!e.detail || !e.detail.cmd || e.detail.cmd !== "transactions") return;
+        if (!e.detail || !e.detail.cmd || e.detail.cmd !== "transactions")
+            return;
         for (const transaction of e.detail.data) {
             for (const operation of transaction.doOperations) {
                 if (operation.action === "insert") {
@@ -303,13 +316,21 @@ export default class HeaderNumberPlugin extends Plugin {
                 }
             }
         }
-    }
+    };
 
     private onDocSwitch = (e: CustomEvent) => {
         this.activeProtyle = e.detail.protyle;
         this.activeDocId = this.getDocId(this.activeProtyle);
-        this.changeDocEnableStatus(null);
-    }
+        if (!this.activeDocId) {
+            this.changeDocEnableStatus(null);
+            return;
+        }
+        if (this.isDocEnabled(this.activeDocId)) {
+            this.changeDocEnableStatus(true);
+        } else {
+            this.changeDocEnableStatus(false);
+        }
+    };
 
     private queueUpdate() {
         this.removeTimer();
@@ -330,9 +351,9 @@ export default class HeaderNumberPlugin extends Plugin {
 
     private isDocEnabled(docId: string | null): boolean {
         if (!docId) return false;
-        return docId in this.config.docEnableStatus ? 
-            this.config.docEnableStatus[docId] : 
-            this.config.defaultEnabled;
+        return docId in this.config.docEnableStatus
+            ? this.config.docEnableStatus[docId]
+            : this.config.defaultEnabled;
     }
 
     private enableDoc(docId: string | null) {
@@ -372,11 +393,13 @@ export default class HeaderNumberPlugin extends Plugin {
             if (!headerElements.length) return;
 
             // 收集所有存在的标题级别并排序
-            const existingLevels = Array.from(new Set(
-                Array.from(headerElements)
-                    .map((element: Element) => getHeaderLevel(element))
-                    .filter((level: number) => level > 0)
-            )).sort((a: number, b: number) => a - b);
+            const existingLevels = Array.from(
+                new Set(
+                    Array.from(headerElements)
+                        .map((element: Element) => getHeaderLevel(element))
+                        .filter((level: number) => level > 0)
+                )
+            ).sort((a: number, b: number) => a - b);
 
             // 准备更新
             const updates: Record<string, string> = {};
@@ -384,22 +407,26 @@ export default class HeaderNumberPlugin extends Plugin {
 
             // 处理每个标题
             for (const element of headerElements) {
-                const blockId = element.getAttribute('data-node-id');
+                const blockId = element.getAttribute("data-node-id");
                 if (!blockId) continue;
 
                 const level = getHeaderLevel(element);
                 if (level === 0) continue;
 
-                const eleWithContent = element.querySelector('[contenteditable="true"]');
+                const eleWithContent = element.querySelector(
+                    '[contenteditable="true"]'
+                );
                 if (!eleWithContent) continue;
-                const content = eleWithContent.textContent || '';
-
-                // 如果已经有序号，先移除
+                
+                // 获取原始HTML内容而不是纯文本
+                const htmlContent = eleWithContent.innerHTML || "";
+                
+                // 检查是否已有序号并移除
                 const actualLevel = existingLevels.indexOf(level);
                 const format = this.config.formats[actualLevel];
-                const originalContent = hasHeaderNumber(content, format) ? 
-                    removeHeaderNumber(content, format) : 
-                    content;
+                const originalContent = hasHeaderNumber(htmlContent, format)
+                    ? removeHeaderNumber(htmlContent, format)
+                    : htmlContent;
 
                 // 生成新序号
                 const [number, newCounters] = generateHeaderNumber(
@@ -412,23 +439,27 @@ export default class HeaderNumberPlugin extends Plugin {
 
                 // 更新计数器
                 Object.assign(counters, newCounters);
-                eleWithContent.textContent = number + originalContent;
+                
+                // 添加新序号到HTML内容
+                eleWithContent.innerHTML = number + originalContent;
 
                 // 添加新序号
                 updates[blockId] = element.outerHTML;
             }
 
             this.changeDocEnableStatus(true);
-            
+
             // 批量更新内容
             if (Object.keys(updates).length > 0) {
                 // 由于是从 DOM 中获取的内容，使用 dom 格式更新
                 await batchUpdateBlockContent(updates, "dom");
-                
+
                 // 如果有活动的块，将光标移动到其末尾
                 if (this.activeBlockId) {
                     setTimeout(() => {
-                        const activeBlock = document.querySelector(`[data-node-id="${this.activeBlockId}"]`);
+                        const activeBlock = document.querySelector(
+                            `[data-node-id="${this.activeBlockId}"]`
+                        );
                         if (activeBlock) {
                             setCursorToEnd(activeBlock);
                         }
@@ -453,46 +484,51 @@ export default class HeaderNumberPlugin extends Plugin {
             if (!headerElements.length) return;
 
             // 收集所有存在的标题级别并排序
-            const existingLevels = Array.from(new Set(
-                Array.from(headerElements)
-                    .map((element: Element) => getHeaderLevel(element))
-                    .filter((level: number) => level > 0)
-            )).sort((a: number, b: number) => a - b);
+            const existingLevels = Array.from(
+                new Set(
+                    Array.from(headerElements)
+                        .map((element: Element) => getHeaderLevel(element))
+                        .filter((level: number) => level > 0)
+                )
+            ).sort((a: number, b: number) => a - b);
 
             // 准备更新
             const updates: Record<string, string> = {};
 
             // 处理每个标题
             for (const element of headerElements) {
-                const blockId = element.getAttribute('data-node-id');
+                const blockId = element.getAttribute("data-node-id");
                 if (!blockId) continue;
 
                 const level = getHeaderLevel(element);
                 if (level === 0) continue;
 
-                const eleWithContent = element.querySelector('[contenteditable="true"]');
+                const eleWithContent = element.querySelector(
+                    '[contenteditable="true"]'
+                );
                 if (!eleWithContent) continue;
-                const content = eleWithContent.textContent || '';
+                
+                // 获取原始HTML内容而不是纯文本
+                const htmlContent = eleWithContent.innerHTML || "";
 
                 // 获取对应级别的格式
                 const actualLevel = existingLevels.indexOf(level);
                 const format = this.config.formats[actualLevel];
-                
+
                 // 如果有序号，则移除
-                if (hasHeaderNumber(content, format)) {
-                    const originalContent = removeHeaderNumber(content, format);
-                    eleWithContent.textContent = originalContent;
+                if (hasHeaderNumber(htmlContent, format)) {
+                    const originalContent = removeHeaderNumber(htmlContent, format);
+                    eleWithContent.innerHTML = originalContent;
                     updates[blockId] = element.outerHTML;
                 }
             }
 
             this.changeDocEnableStatus(false);
-            
+
             // 批量更新内容
             if (Object.keys(updates).length > 0) {
                 await batchUpdateBlockContent(updates, "dom");
             }
-            
         } catch (error) {
             console.error(this.i18n.clearError, error);
             showMessage(this.i18n.clearErrorMsg);

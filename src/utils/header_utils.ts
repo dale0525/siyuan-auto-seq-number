@@ -105,78 +105,26 @@ export function generateHeaderNumber(
 
 /**
  * 检查文本是否包含序号
- * @param text 要检查的文本
+ * @param text 要检查的文本或HTML内容
  * @param format 序号格式
  * @returns 如果包含序号返回true，否则返回false
  */
 export function hasHeaderNumber(text: string, format: string): boolean {
-    // 找出所有占位符
-    const placeholders = format.match(/\{(\d+)\}/g) || [];
-    let regexPattern = format;
-    
-    // 先替换占位符为临时标记，避免被转义
-    const tempMarkers: string[] = [];
-    placeholders.forEach((placeholder, index) => {
-        const marker = `__PLACEHOLDER_${index}__`;
-        tempMarkers.push(marker);
-        regexPattern = regexPattern.replace(placeholder, marker);
-    });
-    
-    // 转义正则表达式特殊字符
-    regexPattern = regexPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
-    // 还原占位符并替换为数字匹配模式
-    tempMarkers.forEach((marker, index) => {
-        const numbers = ['0']; // 添加0作为可能的数字
-        for (let i = 1; i <= 99; i++) {
-            numbers.push(i.toString(), num2Chinese(i));
-        }
-        regexPattern = regexPattern.replace(
-            marker,
-            `(${numbers.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`
-        );
-    });
-    
-    const regex = new RegExp(`^${regexPattern}`);
-    return regex.test(text);
+    // 简化实现，直接使用正则表达式匹配序号模式
+    const headerPattern = new RegExp(`^${format.replace(/\{(\d+)\}/g, '\\d+')}`);
+    return headerPattern.test(text);
 }
 
 /**
  * 从文本中移除序号
- * @param text 要处理的文本
+ * @param text 要处理的文本或HTML内容
  * @param format 序号格式
  * @returns 移除序号后的文本
  */
 export function removeHeaderNumber(text: string, format: string): string {
-    // 找出所有占位符
-    const placeholders = format.match(/\{(\d+)\}/g) || [];
-    let regexPattern = format;
-    
-    // 先替换占位符为临时标记，避免被转义
-    const tempMarkers: string[] = [];
-    placeholders.forEach((placeholder, index) => {
-        const marker = `__PLACEHOLDER_${index}__`;
-        tempMarkers.push(marker);
-        regexPattern = regexPattern.replace(placeholder, marker);
-    });
-    
-    // 转义正则表达式特殊字符
-    regexPattern = regexPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
-    // 还原占位符并替换为数字匹配模式
-    tempMarkers.forEach((marker, index) => {
-        const numbers = ['0']; // 添加0作为可能的数字
-        for (let i = 1; i <= 99; i++) {
-            numbers.push(i.toString(), num2Chinese(i));
-        }
-        regexPattern = regexPattern.replace(
-            marker,
-            `(${numbers.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`
-        );
-    });
-    
-    const regex = new RegExp(`^${regexPattern}`);
-    return text.replace(regex, '');
+    // 简化实现，直接使用正则表达式替换序号
+    const headerPattern = new RegExp(`^${format.replace(/\{(\d+)\}/g, '\\d+')}`);
+    return text.replace(headerPattern, '');
 }
 
 /**

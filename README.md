@@ -19,6 +19,9 @@ After installation, please go to the plugin settings page first:
 - Currently only supports up to 99 headings at the same level (should be sufficient)
 
 ## Changelog
+### 2.0.1
+- Fixed the issue that markdown formats in header will disappear when toggling on/off the plugin.
+
 ### 2.0.0
 - Refactored logic, no longer using pseudo-css to display heading numbers, but directly modifying the text content in notes. Therefore, it remains effective in outline and export.
 - Should resolve all issues.
