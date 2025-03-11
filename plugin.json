@@ -2,7 +2,7 @@
   "name": "siyuan-auto-seq-number",
   "author": "Logic Tan",
   "url": "https://github.com/dale0525/siyuan-auto-seq-number",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "minAppVersion": "2.11.1",
   "backends": [
     "all"

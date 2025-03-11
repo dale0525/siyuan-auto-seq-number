@@ -7,7 +7,7 @@ import {
     hasHeaderNumber,
     removeHeaderNumber,
 } from "./utils/header_utils";
-import { batchUpdateBlockContent } from "./utils/api";
+import { batchUpdateBlockContent, getVersion } from "./utils/api";
 import "./style.scss";
 
 // 存储配置的键名
@@ -38,8 +38,10 @@ export default class HeaderNumberPlugin extends Plugin {
     private shouldUpdate: boolean = false;
     private activeBlockId: string | null = null;
     private topBarElement: HTMLElement | null = null;
+    private version: string = "";
 
     async onload() {
+        this.version = await getVersion();
         // 加载配置
         this.config = await this.loadConfig();
 
@@ -88,6 +90,14 @@ export default class HeaderNumberPlugin extends Plugin {
                 checkbox.checked = this.config.realTimeUpdate;
                 checkbox.addEventListener("change", () => {
                     this.config.realTimeUpdate = checkbox.checked;
+                    if (checkbox.checked) {
+                        this.eventBus.on("ws-main", this.onEdited);
+                    } else {
+                        this.eventBus.off("ws-main", this.onEdited);
+                        if (this.updateTimer) {
+                            clearTimeout(this.updateTimer);
+                        }
+                    }
                 });
 
                 container.appendChild(checkbox);
@@ -403,6 +413,9 @@ export default class HeaderNumberPlugin extends Plugin {
         this.removeTimer();
 
         try {
+            // 先清除所有现有的编号
+            await this.clearDocNumbering(protyle);
+            
             // 获取所有标题元素
             const headerElements = this.getHeaderElements(protyle);
             if (!headerElements.length) return;
@@ -436,12 +449,8 @@ export default class HeaderNumberPlugin extends Plugin {
                 // 获取原始HTML内容而不是纯文本
                 const htmlContent = eleWithContent.innerHTML || "";
 
-                // 检查是否已有序号并移除
-                const actualLevel = existingLevels.indexOf(level);
-                const format = this.config.formats[actualLevel];
-                const originalContent = hasHeaderNumber(htmlContent, format)
-                    ? removeHeaderNumber(htmlContent, format)
-                    : htmlContent;
+                // 由于已经清除了编号，不需要再检查和移除
+                const originalContent = htmlContent;
 
                 // 生成新序号
                 const [number, newCounters] = generateHeaderNumber(
@@ -467,7 +476,7 @@ export default class HeaderNumberPlugin extends Plugin {
             // 批量更新内容
             if (Object.keys(updates).length > 0) {
                 // 由于是从 DOM 中获取的内容，使用 dom 格式更新
-                await batchUpdateBlockContent(updates, "dom");
+                await batchUpdateBlockContent(updates, "dom", this.canUseBulkApi());
 
                 // 如果有活动的块，将光标移动到其末尾
                 if (this.activeBlockId) {
@@ -526,17 +535,22 @@ export default class HeaderNumberPlugin extends Plugin {
                 // 获取原始HTML内容而不是纯文本
                 const htmlContent = eleWithContent.innerHTML || "";
 
-                // 获取对应级别的格式
-                const actualLevel = existingLevels.indexOf(level);
-                const format = this.config.formats[actualLevel];
+                // 检查所有可能的格式
+                let contentUpdated = false;
+                for (let i = 0; i < this.config.formats.length; i++) {
+                    const format = this.config.formats[i];
+                    if (hasHeaderNumber(htmlContent, format)) {
+                        const originalContent = removeHeaderNumber(
+                            htmlContent,
+                            format
+                        );
+                        eleWithContent.innerHTML = originalContent;
+                        contentUpdated = true;
+                    }
+                }
 
-                // 如果有序号，则移除
-                if (hasHeaderNumber(htmlContent, format)) {
-                    const originalContent = removeHeaderNumber(
-                        htmlContent,
-                        format
-                    );
-                    eleWithContent.innerHTML = originalContent;
+                // 如果内容被更新，则添加到更新列表中
+                if (contentUpdated) {
                     updates[blockId] = element.outerHTML;
                 }
             }
@@ -545,7 +559,7 @@ export default class HeaderNumberPlugin extends Plugin {
 
             // 批量更新内容
             if (Object.keys(updates).length > 0) {
-                await batchUpdateBlockContent(updates, "dom");
+                await batchUpdateBlockContent(updates, "dom", this.canUseBulkApi());
             }
         } catch (error) {
             console.error(this.i18n.clearError, error);
@@ -557,5 +571,10 @@ export default class HeaderNumberPlugin extends Plugin {
         if (this.updateTimer) {
             clearTimeout(this.updateTimer);
         }
+    }
+
+    private canUseBulkApi() {
+        // 如果版本号小于3.1.25，则不能使用批量更新
+        return this.version >= "3.1.25";
     }
 }

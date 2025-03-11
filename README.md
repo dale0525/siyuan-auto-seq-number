@@ -19,6 +19,11 @@ After installation, please go to the plugin settings page first:
 - Currently only supports up to 99 headings at the same level (should be sufficient)
 
 ## Changelog
+### 2.0.3
+- Fix misalignment caused by inserting other heading levels in a discontinuous heading level
+- Fixed the problem that real-time update did not take effect immediately after checking the box in the setting interface.
+- The use of the batch update block interface added in 3.1.25 is reserved, and in time it may be possible to significantly increase the speed of generating and clearing heading numbers
+
 ### 2.0.2
 - Fixed the issue when enabling Chinese heading.
 - Display enable status directly through top button status. Removed status bar notifications.
