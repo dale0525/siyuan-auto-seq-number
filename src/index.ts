@@ -31,13 +31,13 @@ const DEFAULT_CONFIG: IPluginConfig = {
 
 export default class HeaderNumberPlugin extends Plugin {
     public config!: IPluginConfig;
-    private statusElement!: HTMLElement;
     private updateTimer: number | null = null;
     private lastInputTime: number = 0;
     private activeDocId: string | null = null;
     private activeProtyle: any;
     private shouldUpdate: boolean = false;
     private activeBlockId: string | null = null;
+    private topBarElement: HTMLElement | null = null;
 
     async onload() {
         // 加载配置
@@ -59,24 +59,17 @@ export default class HeaderNumberPlugin extends Plugin {
             description: this.i18n.defaultEnabledDesc,
             createActionElement: () => {
                 const container = document.createElement("div");
-                container.className = "setting-item";
-
-                const checkboxWrapper = document.createElement("div");
-                checkboxWrapper.className = "checkbox-wrapper";
+                container.className = "setting-item__action";
 
                 const checkbox = document.createElement("input");
                 checkbox.type = "checkbox";
+                checkbox.className = "b3-switch fn__flex-center";
                 checkbox.checked = this.config.defaultEnabled;
                 checkbox.addEventListener("change", () => {
                     this.config.defaultEnabled = checkbox.checked;
                 });
 
-                const label = document.createElement("label");
-                label.textContent = this.i18n.defaultEnabled;
-
-                checkboxWrapper.appendChild(checkbox);
-                checkboxWrapper.appendChild(label);
-                container.appendChild(checkboxWrapper);
+                container.appendChild(checkbox);
                 return container;
             },
         });
@@ -87,24 +80,17 @@ export default class HeaderNumberPlugin extends Plugin {
             description: this.i18n.realTimeUpdateDesc,
             createActionElement: () => {
                 const container = document.createElement("div");
-                container.className = "setting-item";
-
-                const checkboxWrapper = document.createElement("div");
-                checkboxWrapper.className = "checkbox-wrapper";
+                container.className = "setting-item__action";
 
                 const checkbox = document.createElement("input");
                 checkbox.type = "checkbox";
+                checkbox.className = "b3-switch fn__flex-center";
                 checkbox.checked = this.config.realTimeUpdate;
                 checkbox.addEventListener("change", () => {
                     this.config.realTimeUpdate = checkbox.checked;
                 });
 
-                const label = document.createElement("label");
-                label.textContent = this.i18n.realTimeUpdate;
-
-                checkboxWrapper.appendChild(checkbox);
-                checkboxWrapper.appendChild(label);
-                container.appendChild(checkboxWrapper);
+                container.appendChild(checkbox);
                 return container;
             },
         });
@@ -119,35 +105,47 @@ export default class HeaderNumberPlugin extends Plugin {
                 description: i === 0 ? this.i18n.headerFormatDesc : "",
                 createActionElement: () => {
                     const container = document.createElement("div");
-                    container.className = "setting-item";
+                    container.className = "setting-item__action";
+
+                    // 创建格式输入框
+                    const inputContainer = document.createElement("div");
+                    inputContainer.className = "fn__flex-1";
 
                     const input = document.createElement("input");
                     input.type = "text";
-                    input.className = "format-input";
+                    input.className = "b3-text-field fn__flex-1";
                     input.value = this.config.formats[i];
                     input.placeholder = "例如: 第{1}章";
                     input.addEventListener("change", () => {
                         this.config.formats[i] = input.value;
                     });
 
-                    const checkboxWrapper = document.createElement("div");
-                    checkboxWrapper.className = "checkbox-wrapper";
+                    inputContainer.appendChild(input);
+                    container.appendChild(inputContainer);
+
+                    // 创建中文数字选项
+                    const checkboxContainer = document.createElement("div");
+                    checkboxContainer.className =
+                        "fn__flex fn__flex-center chinese-number-option";
+                    checkboxContainer.style.marginTop = "5px"; // 写在scss里面不生效？
 
                     const checkbox = document.createElement("input");
                     checkbox.type = "checkbox";
+                    checkbox.className = "b3-switch fn__flex-center";
                     checkbox.checked = this.config.useChineseNumbers[i];
                     checkbox.addEventListener("change", () => {
                         this.config.useChineseNumbers[i] = checkbox.checked;
                     });
 
-                    const label = document.createElement("label");
+                    const label = document.createElement("span");
+                    label.className = "chinese-number-label";
+                    label.style.marginLeft = "8px"; // 写在scss里面不生效？
                     label.textContent = this.i18n.useChineseNumbers;
 
-                    checkboxWrapper.appendChild(checkbox);
-                    checkboxWrapper.appendChild(label);
+                    checkboxContainer.appendChild(checkbox);
+                    checkboxContainer.appendChild(label);
+                    container.appendChild(checkboxContainer);
 
-                    container.appendChild(input);
-                    container.appendChild(checkboxWrapper);
                     return container;
                 },
             });
@@ -158,8 +156,11 @@ export default class HeaderNumberPlugin extends Plugin {
             title: this.i18n.resetConfig,
             description: this.i18n.resetConfigDesc,
             createActionElement: () => {
+                const container = document.createElement("div");
+                container.className = "setting-item__action";
+
                 const button = document.createElement("button");
-                button.className = "reset-button";
+                button.className = "b3-button b3-button--outline";
                 button.textContent = this.i18n.resetBtn;
                 button.addEventListener("click", async () => {
                     this.config = {
@@ -189,12 +190,10 @@ export default class HeaderNumberPlugin extends Plugin {
                     globalThis.location.reload();
                 });
 
-                return button;
+                container.appendChild(button);
+                return container;
             },
         });
-
-        // 初始化状态栏
-        this.initStatusBar();
 
         // 初始化顶部工具栏
         this.initTopBar();
@@ -203,6 +202,7 @@ export default class HeaderNumberPlugin extends Plugin {
         this.eventBus.on("loaded-protyle-dynamic", this.onProtyleLoaded);
         this.eventBus.on("loaded-protyle-static", this.onProtyleLoaded);
         this.eventBus.on("switch-protyle", this.onDocSwitch);
+        this.eventBus.on("destroy-protyle", this.onDocClosed);
         if (this.config.realTimeUpdate) {
             this.eventBus.on("ws-main", this.onEdited);
         }
@@ -238,36 +238,27 @@ export default class HeaderNumberPlugin extends Plugin {
         await this.saveData(STORAGE_NAME, this.config);
     }
 
-    private initStatusBar() {
-        this.statusElement = document.createElement("div");
-        this.statusElement.className = "status__counter";
-        this.statusElement.innerHTML = this.i18n.statusDisabled;
-        this.addStatusBar({
-            element: this.statusElement,
-        });
-    }
-
     private changeDocEnableStatus(enabled: boolean | null) {
         if (!this.activeDocId) {
-            this.statusElement.innerHTML = "";
+            this.topBarElement?.classList.remove("active");
             return;
         }
         if (enabled === null) {
-            this.statusElement.innerHTML = "";
+            this.topBarElement?.classList.remove("active");
             return;
         }
         if (enabled) {
             this.enableDoc(this.activeDocId);
-            this.statusElement.innerHTML = this.i18n.statusEnabled;
+            this.topBarElement?.classList.add("active");
         } else {
             this.disableDoc(this.activeDocId);
-            this.statusElement.innerHTML = this.i18n.statusDisabled;
+            this.topBarElement?.classList.remove("active");
         }
     }
 
     private initTopBar() {
         // 添加标题序号切换按钮
-        this.addTopBar({
+        this.topBarElement = this.addTopBar({
             icon: "iconList",
             title: this.i18n.toggleHeaderNumber,
             callback: async () => {
@@ -275,19 +266,44 @@ export default class HeaderNumberPlugin extends Plugin {
                     await this.clearDocNumbering(this.activeProtyle);
                     showMessage(this.i18n.numberingDisabled);
                     this.disableDoc(this.activeDocId);
+                    this.topBarElement?.classList.remove("active");
                 } else {
                     await this.updateDocNumbering(this.activeProtyle);
                     showMessage(this.i18n.numberingEnabled);
                     this.enableDoc(this.activeDocId);
+                    this.topBarElement?.classList.add("active");
                 }
+                this.changeDocEnableStatus(this.isDocEnabled(this.activeDocId));
             },
         });
+
+        // 添加自定义类名
+        if (this.topBarElement) {
+            this.topBarElement.classList.add("toolbar__item--auto-seq-number");
+            // 根据当前文档状态设置激活状态
+            if (this.activeDocId && this.isDocEnabled(this.activeDocId)) {
+                this.topBarElement?.classList.add("active");
+            }
+        }
     }
 
     private onProtyleLoaded = async (e: CustomEvent) => {
         this.activeProtyle = e.detail.protyle;
         this.activeDocId = this.getDocId(this.activeProtyle);
         if (!this.activeDocId) return;
+
+        // 更新状态栏显示
+        this.changeDocEnableStatus(this.isDocEnabled(this.activeDocId));
+
+        // 更新顶部工具栏状态
+        if (this.topBarElement) {
+            if (this.isDocEnabled(this.activeDocId)) {
+                this.topBarElement.classList.add("active");
+            } else {
+                this.topBarElement.classList.remove("active");
+            }
+        }
+
         // 检查文档是否启用了序号
         if (this.isDocEnabled(this.activeDocId)) {
             await this.updateDocNumbering(this.activeProtyle);
@@ -318,18 +334,17 @@ export default class HeaderNumberPlugin extends Plugin {
         }
     };
 
+    private onDocClosed = (e: CustomEvent) => {
+        this.changeDocEnableStatus(null);
+    };
+
     private onDocSwitch = (e: CustomEvent) => {
         this.activeProtyle = e.detail.protyle;
         this.activeDocId = this.getDocId(this.activeProtyle);
-        if (!this.activeDocId) {
-            this.changeDocEnableStatus(null);
-            return;
-        }
-        if (this.isDocEnabled(this.activeDocId)) {
-            this.changeDocEnableStatus(true);
-        } else {
-            this.changeDocEnableStatus(false);
-        }
+        this.activeBlockId = null;
+
+        // 更新状态栏显示
+        this.changeDocEnableStatus(this.isDocEnabled(this.activeDocId));
     };
 
     private queueUpdate() {
@@ -417,10 +432,10 @@ export default class HeaderNumberPlugin extends Plugin {
                     '[contenteditable="true"]'
                 );
                 if (!eleWithContent) continue;
-                
+
                 // 获取原始HTML内容而不是纯文本
                 const htmlContent = eleWithContent.innerHTML || "";
-                
+
                 // 检查是否已有序号并移除
                 const actualLevel = existingLevels.indexOf(level);
                 const format = this.config.formats[actualLevel];
@@ -439,7 +454,7 @@ export default class HeaderNumberPlugin extends Plugin {
 
                 // 更新计数器
                 Object.assign(counters, newCounters);
-                
+
                 // 添加新序号到HTML内容
                 eleWithContent.innerHTML = number + originalContent;
 
@@ -507,7 +522,7 @@ export default class HeaderNumberPlugin extends Plugin {
                     '[contenteditable="true"]'
                 );
                 if (!eleWithContent) continue;
-                
+
                 // 获取原始HTML内容而不是纯文本
                 const htmlContent = eleWithContent.innerHTML || "";
 
@@ -517,7 +532,10 @@ export default class HeaderNumberPlugin extends Plugin {
 
                 // 如果有序号，则移除
                 if (hasHeaderNumber(htmlContent, format)) {
-                    const originalContent = removeHeaderNumber(htmlContent, format);
+                    const originalContent = removeHeaderNumber(
+                        htmlContent,
+                        format
+                    );
                     eleWithContent.innerHTML = originalContent;
                     updates[blockId] = element.outerHTML;
                 }

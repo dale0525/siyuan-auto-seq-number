@@ -1,111 +1,154 @@
 .auto-seq-number-settings {
-    padding: 16px;
+    /* 设置面板整体样式 */
+    .b3-label {
+        font-weight: 500;
+        margin-bottom: 8px;
+    }
     
-    .setting-item {
-        margin-bottom: 24px;
-        padding: 16px;
-        border-radius: 6px;
-        background-color: var(--b3-theme-background);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
+    .b3-label__text {
+        font-size: 14px;
+    }
+    
+    .b3-label__desc {
+        font-size: 12px;
+        opacity: 0.8;
+    }
+    
+    .setting-item__action {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        margin-top: 8px;
+        
+        .b3-text-field {
+            padding: 8px 12px;
+            border: 1px solid var(--b3-border-color);
+            border-radius: 4px;
+            background: var(--b3-theme-background);
+            color: var(--b3-theme-on-background);
+            font-size: 14px;
+            transition: all 0.2s ease;
+            height: 32px;
+            box-sizing: border-box;
 
-        &:hover {
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-        }
-
-        .item-header {
-            margin-bottom: 12px;
-
-            .item-title {
-                font-size: 16px;
-                font-weight: 600;
-                color: var(--b3-theme-on-background);
-                margin-bottom: 4px;
+            &:focus {
+                border-color: var(--b3-theme-primary);
+                box-shadow: 0 0 0 2px rgba(var(--b3-theme-primary-rgb), 0.1);
+                outline: none;
             }
 
-            .item-description {
-                font-size: 13px;
+            &::placeholder {
                 color: var(--b3-theme-on-surface);
-                opacity: 0.8;
+                opacity: 0.5;
             }
         }
-
-        .item-content {
+        
+        .b3-switch {
+            margin: 0;
+            position: relative;
+            top: 0;
+        }
+        
+        /* 修复中文数字选项的样式 */
+        .chinese-number-option {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            white-space: nowrap;
+            height: 32px; /* 与输入框保持一致的高度 */
+        }
+        
+        .chinese-number-label {
+            display: inline-block;
+            margin-left: 8px;
+            font-size: 14px;
+            white-space: nowrap;
+            writing-mode: horizontal-tb;
+            min-width: 84px; /* 确保有足够的宽度显示完整文本 */
+            color: var(--b3-theme-on-background);
+        }
+        
+        /* 确保输入框和勾选框在同一行且对齐 */
+        .fn__flex-1 {
             display: flex;
             align-items: center;
-            gap: 16px;
-
-            .format-input {
-                flex: 1;
-                padding: 8px 12px;
-                margin-right: 5px;
-                border: 1px solid var(--b3-theme-surface-lighter);
-                border-radius: 4px;
-                background: var(--b3-theme-background);
-                color: var(--b3-theme-on-background);
-                font-size: 14px;
-                transition: all 0.3s ease;
-
-                &:focus {
-                    border-color: var(--b3-theme-primary);
-                    box-shadow: 0 0 0 2px rgba(var(--b3-theme-primary-rgb), 0.1);
-                    outline: none;
-                }
-
-                &::placeholder {
-                    color: var(--b3-theme-on-surface);
-                    opacity: 0.5;
-                }
-            }
-
-            .checkbox-wrapper {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                padding: 4px 8px;
-                border-radius: 4px;
-                cursor: pointer;
-                user-select: none;
-                transition: all 0.3s ease;
-
-                &:hover {
-                    background: var(--b3-theme-surface-lighter);
-                }
-
-                input[type="checkbox"] {
-                    width: 16px;
-                    height: 16px;
-                    margin: 0;
-                }
-
-                label {
-                    font-size: 14px;
-                    color: var(--b3-theme-on-background);
-                }
+            flex: 1;
+        }
+    }
+    
+    /* 设置项之间的间距 */
+    .b3-setting-item {
+        padding: 16px 0;
+        border-bottom: 1px solid var(--b3-border-color);
+        opacity: 0.8;
+        
+        &:last-child {
+            border-bottom: none;
+        }
+    }
+    
+    /* 分隔线 */
+    .fn__hr {
+        margin: 16px 0;
+        background-color: var(--b3-border-color);
+        height: 1px;
+        border: 0;
+        opacity: 0.5;
+    }
+    
+    /* 按钮样式 */
+    .b3-button {
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+        transition: all 0.2s ease;
+        
+        &.b3-button--outline {
+            border: 1px solid var(--b3-theme-primary);
+            color: var(--b3-theme-primary);
+            background: transparent;
+            
+            &:hover {
+                background-color: var(--b3-theme-primary-lightest);
             }
         }
     }
+}
 
-    .reset-button {
-        width: 100%;
-        padding: 12px 16px;
-        margin-top: 16px;
-        background: var(--b3-theme-error);
-        border: 1px solid var(--b3-theme-error);
-        color: white;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 15px;
-        font-weight: 500;
-        transition: all 0.3s ease;
+/* 顶部工具栏按钮样式 */
+.toolbar__item--auto-seq-number {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+        background-color: var(--b3-theme-background-light);
+    }
+    
+    &.active {
+        background-color: var(--b3-theme-primary-lightest);
+        color: var(--b3-theme-primary);
+    }
+}
 
-        &:hover {
-            background: var(--b3-theme-error-darker, #d32f2f);
-            border-color: var(--b3-theme-error-darker, #d32f2f);
-        }
-
-        &:active {
-            transform: translateY(1px);
-        }
+/* 状态栏样式 */
+.status__item--auto-seq-number {
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    height: 100%;
+    
+    &:hover {
+        background-color: var(--b3-theme-background-light);
+    }
+    
+    &.active {
+        color: var(--b3-theme-primary);
+    }
+    
+    .status-icon {
+        margin-right: 4px;
+        font-size: 14px;
     }
 } 

@@ -4,7 +4,7 @@
 A plugin for SiYuan Note that automatically generates numbers for headings.
 
 ## Usage
-After installing the plugin, a button will be added to the top-right corner to generate/clear numbers for the current note. Clicking it will toggle between generation and clearing states. The current generation status of the note will also be displayed in the status bar at the bottom right.
+After installing the plugin, a button will be added to the top-right corner to generate/clear numbers for the current note. Clicking it will toggle between generation and clearing states. The button is in activated status when the feature is turned on for current note.
 If the current note is configured to be generated, the numbers will be refreshed when opening or refreshing the note.
 After installation, please go to the plugin settings page first:
 - Default Enable: If turned on, new notes will have the number generation feature enabled by default
@@ -19,6 +19,11 @@ After installation, please go to the plugin settings page first:
 - Currently only supports up to 99 headings at the same level (should be sufficient)
 
 ## Changelog
+### 2.0.2
+- Fixed the issue when enabling Chinese heading.
+- Display enable status directly through top button status. Removed status bar notifications.
+- Optimize settings panel.
+
 ### 2.0.1
 - Fixed the issue that markdown formats in header will disappear when toggling on/off the plugin.
 
