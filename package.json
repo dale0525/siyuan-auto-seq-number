@@ -6,14 +6,20 @@
   "scripts": {
     "lint": "eslint . --fix --cache",
     "dev": "webpack --mode development",
-    "build": "webpack --mode production"
+    "build": "webpack --mode production",
+    "release": "semantic-release"
   },
   "keywords": [],
   "author": "Logic Tan",
   "license": "MIT",
   "devDependencies": {
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/exec": "^7.1.0",
+    "@semantic-release/github": "^12.0.5",
+    "@semantic-release/release-notes-generator": "^14.1.0",
     "@typescript-eslint/eslint-plugin": "5.29.0",
     "@typescript-eslint/parser": "5.29.0",
+    "conventional-changelog-conventionalcommits": "^9.1.0",
     "copy-webpack-plugin": "^11.0.0",
     "css-loader": "^6.7.1",
     "esbuild-loader": "^3.0.1",
@@ -21,6 +27,7 @@
     "mini-css-extract-plugin": "2.3.0",
     "sass": "^1.62.1",
     "sass-loader": "^12.6.0",
+    "semantic-release": "^25.0.3",
     "siyuan": "0.9.0",
     "tslib": "2.4.0",
     "typescript": "4.7.4",

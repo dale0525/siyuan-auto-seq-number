@@ -9,8 +9,14 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+  GITHUB_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
 
 jobs:
   release:
@@ -19,37 +25,22 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
+          cache: 'pnpm'
 
-      - name: Get Current Version
-        id: version
-        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
-
-      - name: Install Dependencies and Build
-        id: build
-        run: |
-          npm install -g pnpm
-          pnpm install
-          pnpm run build
-          echo "zip_path=$(pwd)/package.zip" >> "$GITHUB_OUTPUT"
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Release
-        run: |
-          current_version="${{ steps.version.outputs.version }}"
-          release_title="v${current_version}-r${GITHUB_RUN_NUMBER}"
-
-          if gh release view "$release_title" >/dev/null 2>&1; then
-            echo "Release $release_title already exists. Nothing to do."
-            exit 0
-          fi
-
-          commit_message=$(git log -1 --pretty=%B)
-          echo "Creating release $release_title"
-          gh release create "$release_title" "${{ steps.build.outputs.zip_path }}" \
-            --target "$GITHUB_SHA" \
-            -t "$release_title" \
-            -n "$commit_message"
+        run: pnpm run release
