@@ -90,15 +90,23 @@ After installation, please go to the plugin settings page first:
 
 ## 开发
 
+本项目使用 `pixi` 管理开发环境，依赖与缓存默认都放在项目目录下（如 `.pixi`、`.pnpm-store`、`node_modules`）。
+
 ```bash
-# 安装依赖
-npm install
+# 初始化 pixi 环境（仅首次）
+pixi install
+
+# 安装 Node 依赖
+pixi run install
 
 # 开发模式
-npm run dev
+pixi run dev
+
+# 代码检查
+pixi run lint
 
 # 构建
-npm run build
+pixi run build
 ```
 
 ## 许可证
