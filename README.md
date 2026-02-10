@@ -3,6 +3,8 @@
 # SiYuan Note Title Auto Numbering Plugin
 A plugin for SiYuan Note that automatically generates numbers for headings.
 
+Latest version: `2.0.5`
+
 ## Usage
 After installing the plugin, a button will be added to the top-right corner to generate/clear numbers for the current note. Clicking it will toggle between generation and clearing states. The button is in activated status when the feature is turned on for current note.
 If the current note is configured to be generated, the numbers will be refreshed when opening or refreshing the note.
@@ -16,9 +18,16 @@ After installation, please go to the plugin settings page first:
 
 ## Known Issues
 - Since updating numbers triggers updates to the actual content of all blocks, there may be brief lag during generation and clearing. It is recommended to avoid editing during this time.
-- Currently only supports up to 99 headings at the same level (should be sufficient)
 
 ## Changelog
+### 2.0.5
+- Fix heading numbering instability in lazy-loaded or large documents.
+- Prevent duplicate numbering after heading format changes.
+- Preserve user-authored/manual prefixes when turning numbering off. ([#22](https://github.com/dale0525/siyuan-auto-seq-number/issues/22), [#23](https://github.com/dale0525/siyuan-auto-seq-number/issues/23), [#24](https://github.com/dale0525/siyuan-auto-seq-number/issues/24), [#25](https://github.com/dale0525/siyuan-auto-seq-number/issues/25))
+
+### 2.0.4
+- Migrate release workflow to semantic-release with automatic semantic version bumps.
+
 ### 2.0.3
 - Fix misalignment caused by inserting other heading levels in a discontinuous heading level
 - Fixed the problem that real-time update did not take effect immediately after checking the box in the setting interface.
