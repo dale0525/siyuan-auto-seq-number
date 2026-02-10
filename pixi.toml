@@ -1,0 +1,22 @@
+[workspace]
+authors = ["Logic Tan <logictan89@gmail.com>"]
+channels = ["conda-forge"]
+name = "siyuan-auto-seq-number"
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+version = "0.1.0"
+
+[activation.env]
+PNPM_HOME = "$PIXI_PROJECT_ROOT/.pnpm-home"
+PNPM_STORE_DIR = "$PIXI_PROJECT_ROOT/.pnpm-store"
+NPM_CONFIG_CACHE = "$PIXI_PROJECT_ROOT/.npm-cache"
+COREPACK_HOME = "$PIXI_PROJECT_ROOT/.corepack"
+
+[tasks]
+install = "pnpm install --frozen-lockfile"
+dev = "pnpm dev"
+build = "pnpm build"
+lint = "pnpm lint"
+
+[dependencies]
+nodejs = "20.*"
+pnpm = "9.*"

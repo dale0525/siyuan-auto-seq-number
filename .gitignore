@@ -1,5 +1,10 @@
 .idea
 node_modules
+.pixi
+.pnpm-store
+.pnpm-home
+.npm-cache
+.corepack
 .DS_Store
 .eslintcache
 dist

@@ -29,16 +29,20 @@ const DEFAULT_CONFIG: IPluginConfig = {
     docEnableStatus: {},
 };
 
+const TOP_BAR_ICON_SVG =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>';
+
 export default class HeaderNumberPlugin extends Plugin {
     public config!: IPluginConfig;
     private updateTimer: number | null = null;
-    private lastInputTime: number = 0;
+    private lastInputTime = 0;
     private activeDocId: string | null = null;
     private activeProtyle: any;
-    private shouldUpdate: boolean = false;
+    private shouldUpdate = false;
     private activeBlockId: string | null = null;
     private topBarElement: HTMLElement | null = null;
-    private version: string = "";
+    private topBarSyncTimers: number[] = [];
+    private version = "";
 
     async onload() {
         this.version = await getVersion();
@@ -205,9 +209,6 @@ export default class HeaderNumberPlugin extends Plugin {
             },
         });
 
-        // 初始化顶部工具栏
-        this.initTopBar();
-
         // 监听编辑器加载事件
         this.eventBus.on("loaded-protyle-dynamic", this.onProtyleLoaded);
         this.eventBus.on("loaded-protyle-static", this.onProtyleLoaded);
@@ -218,11 +219,16 @@ export default class HeaderNumberPlugin extends Plugin {
         }
     }
 
+    onLayoutReady() {
+        this.initTopBar();
+    }
+
     async onunload() {
         // 清理定时器
         if (this.updateTimer) {
             clearTimeout(this.updateTimer);
         }
+        this.clearTopBarSyncTimers();
         // 移除事件监听
         this.eventBus.off("loaded-protyle-dynamic", this.onProtyleLoaded);
         this.eventBus.off("loaded-protyle-static", this.onProtyleLoaded);
@@ -249,39 +255,41 @@ export default class HeaderNumberPlugin extends Plugin {
     }
 
     private changeDocEnableStatus(enabled: boolean | null) {
-        if (!this.activeDocId) {
-            this.topBarElement?.classList.remove("active");
+        if (!this.activeDocId || enabled === null) {
+            this.updateTopBarActiveState();
             return;
         }
-        if (enabled === null) {
-            this.topBarElement?.classList.remove("active");
-            return;
-        }
+
         if (enabled) {
             this.enableDoc(this.activeDocId);
-            this.topBarElement?.classList.add("active");
         } else {
             this.disableDoc(this.activeDocId);
-            this.topBarElement?.classList.remove("active");
         }
+
+        this.updateTopBarActiveState();
     }
 
     private initTopBar() {
+        if (this.topBarElement) {
+            this.syncTopBarElement();
+            this.updateTopBarActiveState();
+            this.scheduleTopBarSync();
+            return;
+        }
+
         // 添加标题序号切换按钮
         this.topBarElement = this.addTopBar({
-            icon: "iconList",
+            icon: TOP_BAR_ICON_SVG,
             title: this.i18n.toggleHeaderNumber,
             callback: async () => {
                 if (this.isDocEnabled(this.activeDocId)) {
                     await this.clearDocNumbering(this.activeProtyle);
                     showMessage(this.i18n.numberingDisabled);
                     this.disableDoc(this.activeDocId);
-                    this.topBarElement?.classList.remove("active");
                 } else {
                     await this.updateDocNumbering(this.activeProtyle);
                     showMessage(this.i18n.numberingEnabled);
                     this.enableDoc(this.activeDocId);
-                    this.topBarElement?.classList.add("active");
                 }
                 this.changeDocEnableStatus(this.isDocEnabled(this.activeDocId));
             },
@@ -290,29 +298,71 @@ export default class HeaderNumberPlugin extends Plugin {
         // 添加自定义类名
         if (this.topBarElement) {
             this.topBarElement.classList.add("toolbar__item--auto-seq-number");
-            // 根据当前文档状态设置激活状态
-            if (this.activeDocId && this.isDocEnabled(this.activeDocId)) {
-                this.topBarElement?.classList.add("active");
-            }
         }
+
+        this.syncTopBarElement();
+        this.updateTopBarActiveState();
+        this.scheduleTopBarSync();
+    }
+
+    private updateTopBarActiveState() {
+        if (!this.topBarElement) {
+            return;
+        }
+
+        if (this.activeDocId && this.isDocEnabled(this.activeDocId)) {
+            this.topBarElement.classList.add("active");
+            return;
+        }
+
+        this.topBarElement.classList.remove("active");
+    }
+
+    private syncTopBarElement() {
+        if (!this.topBarElement) {
+            return;
+        }
+
+        const toolbarElement = document.querySelector("#toolbar");
+        if (!toolbarElement) {
+            return;
+        }
+
+        if (!document.contains(this.topBarElement)) {
+            const barPluginsElement = toolbarElement.querySelector("#barPlugins");
+            barPluginsElement?.before(this.topBarElement);
+        }
+
+        window.dispatchEvent(new Event("resize"));
+    }
+
+    private scheduleTopBarSync() {
+        this.clearTopBarSyncTimers();
+
+        [0, 300, 1000].forEach((delay) => {
+            const timerId = window.setTimeout(() => {
+                this.syncTopBarElement();
+                this.updateTopBarActiveState();
+            }, delay);
+            this.topBarSyncTimers.push(timerId);
+        });
+    }
+
+    private clearTopBarSyncTimers() {
+        this.topBarSyncTimers.forEach((timerId) => {
+            clearTimeout(timerId);
+        });
+        this.topBarSyncTimers = [];
     }
 
     private onProtyleLoaded = async (e: CustomEvent) => {
+        this.initTopBar();
         this.activeProtyle = e.detail.protyle;
         this.activeDocId = this.getDocId(this.activeProtyle);
         if (!this.activeDocId) return;
 
         // 更新状态栏显示
         this.changeDocEnableStatus(this.isDocEnabled(this.activeDocId));
-
-        // 更新顶部工具栏状态
-        if (this.topBarElement) {
-            if (this.isDocEnabled(this.activeDocId)) {
-                this.topBarElement.classList.add("active");
-            } else {
-                this.topBarElement.classList.remove("active");
-            }
-        }
 
         // 检查文档是否启用了序号
         if (this.isDocEnabled(this.activeDocId)) {
@@ -344,11 +394,14 @@ export default class HeaderNumberPlugin extends Plugin {
         }
     };
 
-    private onDocClosed = (e: CustomEvent) => {
+    private onDocClosed = () => {
+        this.activeDocId = null;
+        this.activeProtyle = null;
         this.changeDocEnableStatus(null);
     };
 
     private onDocSwitch = (e: CustomEvent) => {
+        this.initTopBar();
         this.activeProtyle = e.detail.protyle;
         this.activeDocId = this.getDocId(this.activeProtyle);
         this.activeBlockId = null;
@@ -419,15 +472,6 @@ export default class HeaderNumberPlugin extends Plugin {
             // 获取所有标题元素
             const headerElements = this.getHeaderElements(protyle);
             if (!headerElements.length) return;
-
-            // 收集所有存在的标题级别并排序
-            const existingLevels = Array.from(
-                new Set(
-                    Array.from(headerElements)
-                        .map((element: Element) => getHeaderLevel(element))
-                        .filter((level: number) => level > 0)
-                )
-            ).sort((a: number, b: number) => a - b);
 
             // 准备更新
             const updates: Record<string, string> = {};
@@ -506,15 +550,6 @@ export default class HeaderNumberPlugin extends Plugin {
             // 获取所有标题元素
             const headerElements = this.getHeaderElements(protyle);
             if (!headerElements.length) return;
-
-            // 收集所有存在的标题级别并排序
-            const existingLevels = Array.from(
-                new Set(
-                    Array.from(headerElements)
-                        .map((element: Element) => getHeaderLevel(element))
-                        .filter((level: number) => level > 0)
-                )
-            ).sort((a: number, b: number) => a - b);
 
             // 准备更新
             const updates: Record<string, string> = {};

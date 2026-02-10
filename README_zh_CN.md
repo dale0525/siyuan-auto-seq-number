@@ -48,3 +48,24 @@
 ### 0.2.0
 - 触发事件改为`loaded-protyle-static`( [#1](https://github.com/dale0525/siyuan-auto-seq-number/issues/1) )
 - 改用::before伪元素实现序号，并使用SessionStorage缓存序号，避免聚焦时序号重置( [#2](https://github.com/dale0525/siyuan-auto-seq-number/issues/2), [#3](https://github.com/dale0525/siyuan-auto-seq-number/issues/3) )
+
+## 开发
+
+本项目使用 `pixi` 管理开发环境，依赖与缓存默认都放在项目目录下（如 `.pixi`、`.pnpm-store`、`node_modules`）。
+
+```bash
+# 初始化 pixi 环境（仅首次）
+pixi install
+
+# 安装 Node 依赖
+pixi run install
+
+# 开发模式
+pixi run dev
+
+# 代码检查
+pixi run lint
+
+# 构建
+pixi run build
+```
