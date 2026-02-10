@@ -2,12 +2,18 @@ import { Plugin, Setting, showMessage } from "siyuan";
 import { setCursorToEnd } from "./utils/dom_operate";
 import { IPluginConfig } from "./types";
 import {
+    addAutoNumberMarker,
+    extractAutoNumberMarkerInfo,
+    extractLegacyAutoNumberPrefix,
     generateHeaderNumber,
-    getHeaderLevel,
-    hasHeaderNumber,
-    removeHeaderNumber,
+    stripAutoNumberMarker,
 } from "./utils/header_utils";
-import { batchUpdateBlockContent, getVersion } from "./utils/api";
+import {
+    batchUpdateBlockContent,
+    getDocHeadingBlocks,
+    getVersion,
+    IDocHeadingBlock,
+} from "./utils/api";
 import "./style.scss";
 
 // 存储配置的键名
@@ -454,9 +460,23 @@ export default class HeaderNumberPlugin extends Plugin {
         return protyle?.background.ial.id || null;
     }
 
-    private getHeaderElements(protyle: any): NodeListOf<Element> {
-        const wysiwyg = protyle.wysiwyg.element;
-        return wysiwyg.querySelectorAll('[data-type="NodeHeading"]');
+    private getHeadingLevelFromSubtype(subtype: string): number {
+        const matched = subtype.match(/^h([1-6])$/);
+        if (!matched) {
+            return 0;
+        }
+
+        return Number(matched[1]);
+    }
+
+    private getExistingLevelsByHeadings(headings: IDocHeadingBlock[]): number[] {
+        return Array.from(
+            new Set(
+                headings
+                    .map((heading) => this.getHeadingLevelFromSubtype(heading.subtype))
+                    .filter((level) => level > 0)
+            )
+        ).sort((a, b) => a - b);
     }
 
     private async updateDocNumbering(protyle: any) {
@@ -466,37 +486,22 @@ export default class HeaderNumberPlugin extends Plugin {
         this.removeTimer();
 
         try {
-            // 先清除所有现有的编号
-            await this.clearDocNumbering(protyle);
-            
-            // 获取所有标题元素
-            const headerElements = this.getHeaderElements(protyle);
-            if (!headerElements.length) return;
+            const headings = await getDocHeadingBlocks(docId);
+            if (!headings.length) {
+                this.shouldUpdate = false;
+                return;
+            }
 
-            // 准备更新
-            const updates: Record<string, string> = {};
+            const existingLevels = this.getExistingLevelsByHeadings(headings);
             const counters = [0, 0, 0, 0, 0, 0];
+            const updates: Record<string, string> = {};
 
-            // 处理每个标题
-            for (const element of headerElements) {
-                const blockId = element.getAttribute("data-node-id");
-                if (!blockId) continue;
+            for (const heading of headings) {
+                const level = this.getHeadingLevelFromSubtype(heading.subtype);
+                if (level === 0) {
+                    continue;
+                }
 
-                const level = getHeaderLevel(element);
-                if (level === 0) continue;
-
-                const eleWithContent = element.querySelector(
-                    '[contenteditable="true"]'
-                );
-                if (!eleWithContent) continue;
-
-                // 获取原始HTML内容而不是纯文本
-                const htmlContent = eleWithContent.innerHTML || "";
-
-                // 由于已经清除了编号，不需要再检查和移除
-                const originalContent = htmlContent;
-
-                // 生成新序号
                 const [number, newCounters] = generateHeaderNumber(
                     level,
                     counters,
@@ -504,35 +509,37 @@ export default class HeaderNumberPlugin extends Plugin {
                     this.config.useChineseNumbers,
                     existingLevels
                 );
-
-                // 更新计数器
                 Object.assign(counters, newCounters);
 
-                // 添加新序号到HTML内容
-                eleWithContent.innerHTML = number + originalContent;
+                const markerInfo = extractAutoNumberMarkerInfo(heading.markdown);
+                const restoredContent = markerInfo
+                    ? markerInfo.backupPrefix + markerInfo.content
+                    : heading.markdown;
 
-                // 添加新序号
-                updates[blockId] = element.outerHTML;
+                let backupPrefix = markerInfo?.backupPrefix || "";
+                if (!backupPrefix) {
+                    backupPrefix = extractLegacyAutoNumberPrefix(
+                        restoredContent,
+                        number
+                    );
+                }
+                const contentWithoutPrefix = backupPrefix
+                    ? restoredContent.substring(backupPrefix.length)
+                    : restoredContent;
+
+                updates[heading.id] =
+                    addAutoNumberMarker(number, backupPrefix) + contentWithoutPrefix;
             }
 
             this.changeDocEnableStatus(true);
 
-            // 批量更新内容
             if (Object.keys(updates).length > 0) {
-                // 由于是从 DOM 中获取的内容，使用 dom 格式更新
-                await batchUpdateBlockContent(updates, "dom", this.canUseBulkApi());
-
-                // 如果有活动的块，将光标移动到其末尾
-                if (this.activeBlockId) {
-                    setTimeout(() => {
-                        const activeBlock = document.querySelector(
-                            `[data-node-id="${this.activeBlockId}"]`
-                        );
-                        if (activeBlock) {
-                            setCursorToEnd(activeBlock);
-                        }
-                    }, 200);
-                }
+                await batchUpdateBlockContent(
+                    updates,
+                    "markdown",
+                    this.canUseBulkApi()
+                );
+                this.resetActiveBlockCursor();
             }
 
             this.shouldUpdate = false;
@@ -547,54 +554,27 @@ export default class HeaderNumberPlugin extends Plugin {
         if (!docId) return;
 
         try {
-            // 获取所有标题元素
-            const headerElements = this.getHeaderElements(protyle);
-            if (!headerElements.length) return;
+            const headings = await getDocHeadingBlocks(docId);
+            if (!headings.length) {
+                return;
+            }
 
-            // 准备更新
             const updates: Record<string, string> = {};
-
-            // 处理每个标题
-            for (const element of headerElements) {
-                const blockId = element.getAttribute("data-node-id");
-                if (!blockId) continue;
-
-                const level = getHeaderLevel(element);
-                if (level === 0) continue;
-
-                const eleWithContent = element.querySelector(
-                    '[contenteditable="true"]'
-                );
-                if (!eleWithContent) continue;
-
-                // 获取原始HTML内容而不是纯文本
-                const htmlContent = eleWithContent.innerHTML || "";
-
-                // 检查所有可能的格式
-                let contentUpdated = false;
-                for (let i = 0; i < this.config.formats.length; i++) {
-                    const format = this.config.formats[i];
-                    if (hasHeaderNumber(htmlContent, format)) {
-                        const originalContent = removeHeaderNumber(
-                            htmlContent,
-                            format
-                        );
-                        eleWithContent.innerHTML = originalContent;
-                        contentUpdated = true;
-                    }
-                }
-
-                // 如果内容被更新，则添加到更新列表中
-                if (contentUpdated) {
-                    updates[blockId] = element.outerHTML;
+            for (const heading of headings) {
+                const restored = stripAutoNumberMarker(heading.markdown, true);
+                if (restored !== heading.markdown) {
+                    updates[heading.id] = restored;
                 }
             }
 
             this.changeDocEnableStatus(false);
 
-            // 批量更新内容
             if (Object.keys(updates).length > 0) {
-                await batchUpdateBlockContent(updates, "dom", this.canUseBulkApi());
+                await batchUpdateBlockContent(
+                    updates,
+                    "markdown",
+                    this.canUseBulkApi()
+                );
             }
         } catch (error) {
             console.error(this.i18n.clearError, error);
@@ -606,6 +586,21 @@ export default class HeaderNumberPlugin extends Plugin {
         if (this.updateTimer) {
             clearTimeout(this.updateTimer);
         }
+    }
+
+    private resetActiveBlockCursor() {
+        if (!this.activeBlockId) {
+            return;
+        }
+
+        setTimeout(() => {
+            const activeBlock = document.querySelector(
+                `[data-node-id="${this.activeBlockId}"]`
+            );
+            if (activeBlock) {
+                setCursorToEnd(activeBlock);
+            }
+        }, 200);
     }
 
     private canUseBulkApi() {

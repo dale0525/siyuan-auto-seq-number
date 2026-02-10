@@ -1,20 +1,134 @@
+const AUTO_NUMBER_MARKER_START = "\u2063\u2064\u2063";
+const AUTO_NUMBER_MARKER_END = "\u2064\u2063\u2064";
+const HIDDEN_ZERO = "\u200b";
+const HIDDEN_ONE = "\u200c";
+const HIDDEN_SEPARATOR = "\u200d";
+
+interface IAutoMarkerPayload {
+    backupPrefix: string;
+    number: string;
+}
+
+export interface IAutoNumberMarkerInfo {
+    backupPrefix: string;
+    number: string;
+    content: string;
+}
+
+function encodeHiddenText(text: string): string {
+    return text
+        .split("")
+        .map((character) => {
+            return character
+                .charCodeAt(0)
+                .toString(2)
+                .padStart(16, "0")
+                .replace(/0/g, HIDDEN_ZERO)
+                .replace(/1/g, HIDDEN_ONE);
+        })
+        .join(HIDDEN_SEPARATOR);
+}
+
+function decodeHiddenText(text: string): string | null {
+    if (!text) {
+        return "";
+    }
+
+    const chunks = text.split(HIDDEN_SEPARATOR);
+    const hiddenChunkPattern = new RegExp(`^[${HIDDEN_ZERO}${HIDDEN_ONE}]{16}$`);
+
+    let decoded = "";
+    for (const chunk of chunks) {
+        if (!hiddenChunkPattern.test(chunk)) {
+            return null;
+        }
+
+        const binary = chunk
+            .split("")
+            .map((char) => {
+                if (char === HIDDEN_ZERO) {
+                    return "0";
+                }
+                if (char === HIDDEN_ONE) {
+                    return "1";
+                }
+                return "";
+            })
+            .join("");
+
+        if (binary.length !== 16) {
+            return null;
+        }
+
+        decoded += String.fromCharCode(parseInt(binary, 2));
+    }
+
+    return decoded;
+}
+
+function parseMarker(text: string): {
+    payload: IAutoMarkerPayload;
+    markerEndIndex: number;
+} | null {
+    if (!text.startsWith(AUTO_NUMBER_MARKER_START)) {
+        return null;
+    }
+
+    const markerEndIndex = text.indexOf(
+        AUTO_NUMBER_MARKER_END,
+        AUTO_NUMBER_MARKER_START.length
+    );
+    if (markerEndIndex === -1) {
+        return null;
+    }
+
+    const encodedPayload = text.substring(
+        AUTO_NUMBER_MARKER_START.length,
+        markerEndIndex
+    );
+    const decodedPayload = decodeHiddenText(encodedPayload);
+    if (decodedPayload === null) {
+        return null;
+    }
+
+    try {
+        const payload = JSON.parse(decodedPayload) as Partial<IAutoMarkerPayload>;
+        if (
+            typeof payload.backupPrefix !== "string" ||
+            typeof payload.number !== "string"
+        ) {
+            return null;
+        }
+
+        return {
+            payload: {
+                backupPrefix: payload.backupPrefix,
+                number: payload.number,
+            },
+            markerEndIndex,
+        };
+    } catch {
+        return null;
+    }
+}
+
 /**
  * 将数字转换为中文数字
  * @param num 要转换的数字
  * @returns 转换后的中文数字
  */
 export function num2Chinese(num: number): string {
-    const units = ['', '十', '百', '千', '万'];
-    const numbers = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
-    
+    const units = ["", "十", "百", "千", "万"];
+    const numbers = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+
     if (num === 0) return numbers[0];
-    if (num < 0) return '负' + num2Chinese(-num);
+    if (num < 0) return "负" + num2Chinese(-num);
     if (num < 10) return numbers[num];
-    
-    let result = '';
+
+    let result = "";
     let temp = num;
     let unitIndex = 0;
-    
+
     while (temp > 0) {
         const digit = temp % 10;
         if (digit === 0) {
@@ -27,17 +141,126 @@ export function num2Chinese(num: number): string {
         temp = Math.floor(temp / 10);
         unitIndex++;
     }
-    
-    // 处理特殊情况
-    result = result.replace(/零+$/, ''); // 移除末尾的零
-    result = result.replace(/零+/g, '零'); // 多个零合并为一个
-    
-    // 处理"一十"开头的情况
-    if (result.startsWith('一十')) {
+
+    result = result.replace(/零+$/, "");
+    result = result.replace(/零+/g, "零");
+
+    if (result.startsWith("一十")) {
         result = result.substring(1);
     }
-    
+
     return result;
+}
+
+/**
+ * 为自动序号添加隐藏标记，仅用于插件识别与移除
+ */
+export function addAutoNumberMarker(number: string, backupPrefix = ""): string {
+    const encodedPayload = encodeHiddenText(
+        JSON.stringify({
+            backupPrefix,
+            number,
+        })
+    );
+    return `${AUTO_NUMBER_MARKER_START}${encodedPayload}${AUTO_NUMBER_MARKER_END}${number}`;
+}
+
+/**
+ * 提取自动序号标记信息
+ */
+export function extractAutoNumberMarkerInfo(text: string): IAutoNumberMarkerInfo | null {
+    const marker = parseMarker(text);
+    if (!marker) {
+        return null;
+    }
+
+    const afterMarker = text.substring(
+        marker.markerEndIndex + AUTO_NUMBER_MARKER_END.length
+    );
+    const content =
+        marker.payload.number && afterMarker.startsWith(marker.payload.number)
+            ? afterMarker.substring(marker.payload.number.length)
+            : afterMarker;
+
+    return {
+        backupPrefix: marker.payload.backupPrefix,
+        number: marker.payload.number,
+        content,
+    };
+}
+
+/**
+ * 移除插件自动添加的隐藏标记与对应序号，不影响用户手动输入内容
+ */
+export function stripAutoNumberMarker(
+    text: string,
+    restoreBackupPrefix = false
+): string {
+    const markerInfo = extractAutoNumberMarkerInfo(text);
+    if (!markerInfo) {
+        return text;
+    }
+
+    const prefix = restoreBackupPrefix ? markerInfo.backupPrefix : "";
+    return `${prefix}${markerInfo.content}`;
+}
+
+function buildLegacyNumberCandidates(number: string): string[] {
+    const candidateSet = new Set<string>();
+    const trimmed = number.replace(/\s+$/, "");
+
+    if (number) {
+        candidateSet.add(number);
+    }
+    if (trimmed) {
+        candidateSet.add(trimmed);
+        candidateSet.add(`${trimmed} `);
+    }
+
+    if (/[.。．、,，:：;；]$/.test(trimmed)) {
+        const withoutTail = trimmed.slice(0, -1);
+        if (withoutTail) {
+            candidateSet.add(withoutTail);
+            candidateSet.add(`${withoutTail} `);
+        }
+    }
+
+    return Array.from(candidateSet).sort((a, b) => b.length - a.length);
+}
+
+/**
+ * 从内容前缀中识别兼容旧版本的自动序号
+ */
+export function extractLegacyAutoNumberPrefix(
+    text: string,
+    generatedNumber: string
+): string {
+    if (!text || !generatedNumber) {
+        return "";
+    }
+
+    const candidates = buildLegacyNumberCandidates(generatedNumber);
+
+    for (const candidate of candidates) {
+        if (!candidate || !text.startsWith(candidate)) {
+            continue;
+        }
+
+        const rest = text.substring(candidate.length);
+        const punctuationMatch = rest.match(/^[.。．、,，:：;；]+\s*/);
+        if (punctuationMatch) {
+            return candidate + punctuationMatch[0];
+        }
+
+        const trailingSpaceMatch = rest.match(/^\s+/);
+        if (trailingSpaceMatch) {
+            return candidate + trailingSpaceMatch[0];
+        }
+
+        return candidate;
+    }
+
+    return "";
 }
 
 /**
@@ -47,7 +270,12 @@ export function num2Chinese(num: number): string {
  * @returns 实际层级（0-based）
  */
 function getActualHeaderLevel(level: number, existingLevels: number[]): number {
-    return existingLevels.indexOf(level);
+    const index = existingLevels.indexOf(level);
+    if (index !== -1) {
+        return index;
+    }
+
+    return Math.max(0, Math.min(level - 1, 5));
 }
 
 /**
@@ -66,40 +294,34 @@ export function generateHeaderNumber(
     useChineseNumbers: boolean[],
     existingLevels: number[] = []
 ): [string, number[]] {
-    // 获取实际层级
-    const actualLevel = existingLevels.length > 0 ? getActualHeaderLevel(level, existingLevels) : level - 1;
-    
-    // 复制计数器以避免修改原数组
+    const actualLevel =
+        existingLevels.length > 0
+            ? getActualHeaderLevel(level, existingLevels)
+            : Math.max(0, Math.min(level - 1, 5));
+
     const newCounters = [...counters];
-    
-    // 增加当前级别的计数
     newCounters[actualLevel]++;
-    
-    // 重置所有低级别的计数
+
     for (let i = actualLevel + 1; i < newCounters.length; i++) {
         newCounters[i] = 0;
     }
-    
-    // 获取当前级别的格式
-    const format = formats[actualLevel];
-    
-    // 生成序号
+
+    const format = formats[actualLevel] ?? formats[formats.length - 1] ?? "{1}. ";
+
     let result = format;
-    // 找出所有占位符
     const placeholders = format.match(/\{(\d+)\}/g) || [];
-    
+
     for (const placeholder of placeholders) {
-        // 获取占位符中的数字
         const match = placeholder.match(/\{(\d+)\}/);
         if (!match) continue;
+
         const index = parseInt(match[1]) - 1;
-        // 使用当前标题级别的 useChineseNumbers 设置
         const shouldUseChinese = useChineseNumbers[actualLevel];
         const num = newCounters[index];
         const numStr = shouldUseChinese ? num2Chinese(num) : num.toString();
         result = result.replace(placeholder, numStr);
     }
-    
+
     return [result, newCounters];
 }
 
@@ -110,33 +332,29 @@ export function generateHeaderNumber(
  * @returns 如果包含序号返回true，否则返回false
  */
 export function hasHeaderNumber(text: string, format: string): boolean {
-    // 找出所有占位符
     const placeholders = format.match(/\{(\d+)\}/g) || [];
     let regexPattern = format;
-    
-    // 先替换占位符为临时标记，避免被转义
+
     const tempMarkers: string[] = [];
     placeholders.forEach((placeholder, index) => {
         const marker = `__PLACEHOLDER_${index}__`;
         tempMarkers.push(marker);
         regexPattern = regexPattern.replace(placeholder, marker);
     });
-    
-    // 转义正则表达式特殊字符
-    regexPattern = regexPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
-    // 还原占位符并替换为数字匹配模式
+
+    regexPattern = regexPattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
     tempMarkers.forEach((marker) => {
-        const numbers = ['0']; // 添加0作为可能的数字
+        const numbers = ["0"];
         for (let i = 1; i <= 99; i++) {
             numbers.push(i.toString(), num2Chinese(i));
         }
         regexPattern = regexPattern.replace(
             marker,
-            `(${numbers.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`
+            `(${numbers.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`
         );
     });
-    
+
     const regex = new RegExp(`^${regexPattern}`);
     return regex.test(text);
 }
@@ -148,35 +366,31 @@ export function hasHeaderNumber(text: string, format: string): boolean {
  * @returns 移除序号后的文本
  */
 export function removeHeaderNumber(text: string, format: string): string {
-    // 找出所有占位符
     const placeholders = format.match(/\{(\d+)\}/g) || [];
     let regexPattern = format;
-    
-    // 先替换占位符为临时标记，避免被转义
+
     const tempMarkers: string[] = [];
     placeholders.forEach((placeholder, index) => {
         const marker = `__PLACEHOLDER_${index}__`;
         tempMarkers.push(marker);
         regexPattern = regexPattern.replace(placeholder, marker);
     });
-    
-    // 转义正则表达式特殊字符
-    regexPattern = regexPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
-    // 还原占位符并替换为数字匹配模式
+
+    regexPattern = regexPattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
     tempMarkers.forEach((marker) => {
-        const numbers = ['0']; // 添加0作为可能的数字
+        const numbers = ["0"];
         for (let i = 1; i <= 99; i++) {
             numbers.push(i.toString(), num2Chinese(i));
         }
         regexPattern = regexPattern.replace(
             marker,
-            `(${numbers.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`
+            `(${numbers.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`
         );
     });
-    
+
     const regex = new RegExp(`^${regexPattern}`);
-    return text.replace(regex, '');
+    return text.replace(regex, "");
 }
 
 /**
@@ -191,4 +405,4 @@ export function getHeaderLevel(element: Element): number {
         }
     }
     return 0;
-} 
+}
