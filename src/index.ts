@@ -485,22 +485,14 @@ export default class HeaderNumberPlugin extends Plugin {
 
     private splitHeadingMarkdown(
         markdown: string
-    ): { prefix: string; content: string } {
+    ): { prefix: string; content: string } | null {
         const directParts = splitMarkdownHeading(markdown);
         if (directParts) {
             return directParts;
         }
 
         const restoredMarkdown = stripAutoNumberMarker(markdown, true);
-        const restoredParts = splitMarkdownHeading(restoredMarkdown);
-        if (restoredParts) {
-            return restoredParts;
-        }
-
-        return {
-            prefix: "",
-            content: markdown,
-        };
+        return splitMarkdownHeading(restoredMarkdown);
     }
 
     private async updateDocNumbering(protyle: any) {
@@ -526,6 +518,11 @@ export default class HeaderNumberPlugin extends Plugin {
                     continue;
                 }
 
+                const headingParts = this.splitHeadingMarkdown(heading.markdown);
+                if (!headingParts) {
+                    continue;
+                }
+
                 const [number, newCounters] = generateHeaderNumber(
                     level,
                     counters,
@@ -533,9 +530,7 @@ export default class HeaderNumberPlugin extends Plugin {
                     this.config.useChineseNumbers,
                     existingLevels
                 );
-                Object.assign(counters, newCounters);
 
-                const headingParts = this.splitHeadingMarkdown(heading.markdown);
                 const headingPrefix = headingParts.prefix;
                 const headingContent = headingParts.content;
 
@@ -558,6 +553,8 @@ export default class HeaderNumberPlugin extends Plugin {
                 updates[heading.id] =
                     `${headingPrefix}${addAutoNumberMarker(number, backupPrefix)}` +
                     contentWithoutPrefix;
+
+                Object.assign(counters, newCounters);
             }
 
             this.changeDocEnableStatus(true);

@@ -21,6 +21,11 @@ export interface IAutoNumberMarkerInfo {
     content: string;
 }
 
+interface ITextWithoutAutoNumber {
+    beforeContent: string;
+    afterContent: string;
+}
+
 function encodeHiddenText(text: string): string {
     return text
         .split("")
@@ -168,7 +173,40 @@ export function addAutoNumberMarker(number: string, backupPrefix = ""): string {
             number,
         })
     );
-    return `${AUTO_NUMBER_MARKER_START}${encodedPayload}${AUTO_NUMBER_MARKER_END}${number}`;
+    return `${number}${AUTO_NUMBER_MARKER_START}${encodedPayload}${AUTO_NUMBER_MARKER_END}`;
+}
+
+function removeAutoNumberNearMarker(
+    text: string,
+    marker: IParsedMarker
+): ITextWithoutAutoNumber {
+    const beforeMarker = text.substring(0, marker.markerStartIndex);
+    const afterMarker = text.substring(
+        marker.markerEndIndex + AUTO_NUMBER_MARKER_END.length
+    );
+    const markerNumber = marker.payload.number;
+
+    if (markerNumber && afterMarker.startsWith(markerNumber)) {
+        return {
+            beforeContent: beforeMarker,
+            afterContent: afterMarker.substring(markerNumber.length),
+        };
+    }
+
+    if (markerNumber && beforeMarker.endsWith(markerNumber)) {
+        return {
+            beforeContent: beforeMarker.substring(
+                0,
+                beforeMarker.length - markerNumber.length
+            ),
+            afterContent: afterMarker,
+        };
+    }
+
+    return {
+        beforeContent: beforeMarker,
+        afterContent: afterMarker,
+    };
 }
 
 /**
@@ -180,19 +218,12 @@ export function extractAutoNumberMarkerInfo(text: string): IAutoNumberMarkerInfo
         return null;
     }
 
-    const beforeMarker = text.substring(0, marker.markerStartIndex);
-    const afterMarker = text.substring(
-        marker.markerEndIndex + AUTO_NUMBER_MARKER_END.length
-    );
-    const contentAfterNumber =
-        marker.payload.number && afterMarker.startsWith(marker.payload.number)
-            ? afterMarker.substring(marker.payload.number.length)
-            : afterMarker;
+    const { beforeContent, afterContent } = removeAutoNumberNearMarker(text, marker);
 
     return {
         backupPrefix: marker.payload.backupPrefix,
         number: marker.payload.number,
-        content: `${beforeMarker}${contentAfterNumber}`,
+        content: `${beforeContent}${afterContent}`,
     };
 }
 
@@ -208,17 +239,10 @@ export function stripAutoNumberMarker(
         return text;
     }
 
-    const beforeMarker = text.substring(0, marker.markerStartIndex);
-    const afterMarker = text.substring(
-        marker.markerEndIndex + AUTO_NUMBER_MARKER_END.length
-    );
-    const contentAfterNumber =
-        marker.payload.number && afterMarker.startsWith(marker.payload.number)
-            ? afterMarker.substring(marker.payload.number.length)
-            : afterMarker;
+    const { beforeContent, afterContent } = removeAutoNumberNearMarker(text, marker);
     const backupPrefix = restoreBackupPrefix ? marker.payload.backupPrefix : "";
 
-    return `${beforeMarker}${backupPrefix}${contentAfterNumber}`;
+    return `${beforeContent}${backupPrefix}${afterContent}`;
 }
 
 interface IMarkdownHeadingParts {
