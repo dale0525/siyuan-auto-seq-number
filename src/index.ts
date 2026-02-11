@@ -10,6 +10,7 @@ import {
 } from "./utils/header_utils";
 import {
     batchUpdateBlockContent,
+    flushTransactionQueue,
     getDocHeadingBlocks,
     getVersion,
     IDocHeadingBlock,
@@ -33,7 +34,7 @@ const DEFAULT_CONFIG: IPluginConfig = {
     defaultEnabled: true,
     realTimeUpdate: false,
     docEnableStatus: {},
-    preservePrefixOnDisable: true,
+    preservePrefixOnDisable: false,
 };
 
 const TOP_BAR_ICON_SVG =
@@ -228,7 +229,7 @@ export default class HeaderNumberPlugin extends Plugin {
                         realTimeUpdate: false,
                         docEnableStatus:
                             this.data[STORAGE_NAME].docEnableStatus, //不删除保存的单独文档设置
-                        preservePrefixOnDisable: true,
+                        preservePrefixOnDisable: false,
                     };
                     await this.saveConfig();
                     showMessage(this.i18n.settingsResetSuccess);
@@ -516,6 +517,14 @@ export default class HeaderNumberPlugin extends Plugin {
         return splitMarkdownHeading(restoredMarkdown);
     }
 
+    private async syncTransactionQueue() {
+        try {
+            await flushTransactionQueue();
+        } catch (error) {
+            console.warn("Failed to flush transaction queue before numbering", error);
+        }
+    }
+
     private async updateDocNumbering(protyle: any) {
         const docId = this.getDocId(protyle);
         if (!docId) return;
@@ -523,6 +532,7 @@ export default class HeaderNumberPlugin extends Plugin {
         this.removeTimer();
 
         try {
+            await this.syncTransactionQueue();
             const headings = await getDocHeadingBlocks(docId);
             if (!headings.length) {
                 this.shouldUpdate = false;
@@ -587,6 +597,7 @@ export default class HeaderNumberPlugin extends Plugin {
         if (!docId) return;
 
         try {
+            await this.syncTransactionQueue();
             const headings = await getDocHeadingBlocks(docId);
             if (!headings.length) {
                 return;

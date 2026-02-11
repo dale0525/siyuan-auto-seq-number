@@ -127,6 +127,11 @@ export async function batchUpdateBlockContent(
     }
 }
 
+
+export async function flushTransactionQueue(): Promise<void> {
+    await postApi<null>("/api/sqlite/flushTransaction", {});
+}
+
 export async function getVersion(): Promise<string> {
     return fetch("/api/system/version", {
         method: "POST",
