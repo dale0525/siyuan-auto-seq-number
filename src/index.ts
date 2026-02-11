@@ -1,5 +1,6 @@
 import { Plugin, Setting, showMessage } from "siyuan";
 import { setCursorToEnd } from "./utils/dom_operate";
+import { isVersionGreaterOrEqual } from "./utils/version_utils";
 import { IPluginConfig } from "./types";
 import {
     addAutoNumberMarker,
@@ -38,6 +39,8 @@ const DEFAULT_CONFIG: IPluginConfig = {
 
 const TOP_BAR_ICON_SVG =
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>';
+
+const BULK_API_MIN_VERSION = "3.1.25";
 
 export default class HeaderNumberPlugin extends Plugin {
     public config!: IPluginConfig;
@@ -631,6 +634,6 @@ export default class HeaderNumberPlugin extends Plugin {
 
     private canUseBulkApi() {
         // 如果版本号小于3.1.25，则不能使用批量更新
-        return this.version >= "3.1.25";
+        return isVersionGreaterOrEqual(this.version, BULK_API_MIN_VERSION);
     }
 }
