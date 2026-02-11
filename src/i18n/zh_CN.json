@@ -18,5 +18,7 @@
     "updateError": "更新标题序号时出错",
     "updateErrorMsg": "更新标题序号失败",
     "clearError": "清除标题序号时出错",
-    "clearErrorMsg": "清除标题序号失败"
+    "clearErrorMsg": "清除标题序号失败",
+    "preservePrefixOnDisable": "关闭时保留原前缀",
+    "preservePrefixOnDisableDesc": "关闭自动编号时，是否保留之前识别到的标题前缀（如手动编号）"
 }

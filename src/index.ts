@@ -33,6 +33,7 @@ const DEFAULT_CONFIG: IPluginConfig = {
     defaultEnabled: true,
     realTimeUpdate: false,
     docEnableStatus: {},
+    preservePrefixOnDisable: true,
 };
 
 const TOP_BAR_ICON_SVG =
@@ -110,6 +111,27 @@ export default class HeaderNumberPlugin extends Plugin {
                             clearTimeout(this.updateTimer);
                         }
                     }
+                });
+
+                container.appendChild(checkbox);
+                return container;
+            },
+        });
+
+        // 添加关闭时保留前缀设置
+        this.setting.addItem({
+            title: this.i18n.preservePrefixOnDisable,
+            description: this.i18n.preservePrefixOnDisableDesc,
+            createActionElement: () => {
+                const container = document.createElement("div");
+                container.className = "setting-item__action";
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.className = "b3-switch fn__flex-center";
+                checkbox.checked = this.config.preservePrefixOnDisable;
+                checkbox.addEventListener("change", () => {
+                    this.config.preservePrefixOnDisable = checkbox.checked;
                 });
 
                 container.appendChild(checkbox);
@@ -206,6 +228,7 @@ export default class HeaderNumberPlugin extends Plugin {
                         realTimeUpdate: false,
                         docEnableStatus:
                             this.data[STORAGE_NAME].docEnableStatus, //不删除保存的单独文档设置
+                        preservePrefixOnDisable: true,
                     };
                     await this.saveConfig();
                     showMessage(this.i18n.settingsResetSuccess);
@@ -571,7 +594,10 @@ export default class HeaderNumberPlugin extends Plugin {
 
             const updates: Record<string, string> = {};
             for (const heading of headings) {
-                const restored = stripAutoNumberMarker(heading.markdown, true);
+                const restored = stripAutoNumberMarker(
+                    heading.markdown,
+                    this.config.preservePrefixOnDisable
+                );
                 if (restored !== heading.markdown) {
                     updates[heading.id] = restored;
                 }

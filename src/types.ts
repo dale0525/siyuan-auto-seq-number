@@ -12,6 +12,8 @@ export interface IPluginConfig {
     realTimeUpdate: boolean;
     // 每个文档的启用状态
     docEnableStatus: Record<string, boolean>;
+    // 关闭自动编号时是否保留历史前缀
+    preservePrefixOnDisable: boolean;
 }
 
 /**

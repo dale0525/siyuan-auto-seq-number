@@ -18,5 +18,7 @@
     "updateError": "Error updating header numbers",
     "updateErrorMsg": "Failed to update header numbers",
     "clearError": "Error clearing header numbers",
-    "clearErrorMsg": "Failed to clear header numbers"
+    "clearErrorMsg": "Failed to clear header numbers",
+    "preservePrefixOnDisable": "Preserve Prefix on Disable",
+    "preservePrefixOnDisableDesc": "When disabling auto-numbering, keep previously detected heading prefixes (such as manual numbering)"
 }

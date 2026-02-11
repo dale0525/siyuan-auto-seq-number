@@ -150,3 +150,31 @@ test("renumberHeadings should stay stable after clear and reapply with mixed hea
     assert.deepEqual(secondRound, firstRound);
 });
 
+test("buildAutoNumberedHeadingContent should keep full Chinese heading text when first enabling numbering", () => {
+    const renumbered = buildAutoNumberedHeadingContent("开启自动序号", "1. ", true);
+
+    assert.equal(stripAutoNumberMarker(renumbered, true), "开启自动序号");
+    assert.equal(stripAutoNumberMarker(renumbered, false), "开启自动序号");
+});
+
+test("renumberHeadings should recompute order after clear-without-prefix mode and manual reorder", () => {
+    const source = [
+        { level: 1, markdown: "# 测试1" },
+        { level: 1, markdown: "# 测试2" },
+    ];
+
+    const firstRound = renumberHeadings(source);
+    const cleared = firstRound.map((markdown) => {
+        return stripAutoNumberMarker(markdown, false);
+    });
+
+    const secondRound = renumberHeadings([
+        { level: 1, markdown: cleared[1] },
+        { level: 1, markdown: cleared[0] },
+    ]);
+
+    assert.match(secondRound[0], /^#\s*1\.\s/);
+    assert.match(secondRound[1], /^#\s*2\.\s/);
+    assert.equal(stripAutoNumberMarker(secondRound[0], false), "# 测试2");
+    assert.equal(stripAutoNumberMarker(secondRound[1], false), "# 测试1");
+});
