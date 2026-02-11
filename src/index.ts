@@ -3,9 +3,7 @@ import { setCursorToEnd } from "./utils/dom_operate";
 import { isVersionGreaterOrEqual } from "./utils/version_utils";
 import { IPluginConfig } from "./types";
 import {
-    addAutoNumberMarker,
-    extractAutoNumberMarkerInfo,
-    extractLegacyAutoNumberPrefix,
+    buildAutoNumberedHeadingContent,
     generateHeaderNumber,
     splitMarkdownHeading,
     stripAutoNumberMarker,
@@ -534,25 +532,11 @@ export default class HeaderNumberPlugin extends Plugin {
                 const headingPrefix = headingParts.prefix;
                 const headingContent = headingParts.content;
 
-                const markerInfo = extractAutoNumberMarkerInfo(headingContent);
-                const restoredContent = markerInfo
-                    ? markerInfo.backupPrefix + markerInfo.content
-                    : headingContent;
-
-                let backupPrefix = markerInfo?.backupPrefix || "";
-                if (!backupPrefix) {
-                    backupPrefix = extractLegacyAutoNumberPrefix(
-                        restoredContent,
-                        number
-                    );
-                }
-                const contentWithoutPrefix = backupPrefix
-                    ? restoredContent.substring(backupPrefix.length)
-                    : restoredContent;
-
-                updates[heading.id] =
-                    `${headingPrefix}${addAutoNumberMarker(number, backupPrefix)}` +
-                    contentWithoutPrefix;
+                updates[heading.id] = `${headingPrefix}${buildAutoNumberedHeadingContent(
+                    headingContent,
+                    number,
+                    true
+                )}`;
 
                 Object.assign(counters, newCounters);
             }

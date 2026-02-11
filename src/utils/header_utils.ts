@@ -26,6 +26,13 @@ interface ITextWithoutAutoNumber {
     afterContent: string;
 }
 
+interface IMarkerExtractionResult {
+    backupPrefix: string;
+    number: string;
+    content: string;
+    found: boolean;
+}
+
 function encodeHiddenText(text: string): string {
     return text
         .split("")
@@ -209,21 +216,56 @@ function removeAutoNumberNearMarker(
     };
 }
 
+function extractAutoNumberMarkers(text: string): IMarkerExtractionResult {
+    let remainingContent = text;
+    let foundMarker = false;
+    let backupPrefix = "";
+    let number = "";
+    let maxRound = 20;
+
+    while (maxRound > 0) {
+        const marker = parseMarker(remainingContent);
+        if (!marker) {
+            break;
+        }
+
+        foundMarker = true;
+        if (!number && marker.payload.number) {
+            number = marker.payload.number;
+        }
+        if (!backupPrefix && marker.payload.backupPrefix) {
+            backupPrefix = marker.payload.backupPrefix;
+        }
+
+        const { beforeContent, afterContent } = removeAutoNumberNearMarker(
+            remainingContent,
+            marker
+        );
+        remainingContent = `${beforeContent}${afterContent}`;
+        maxRound--;
+    }
+
+    return {
+        backupPrefix,
+        number,
+        content: remainingContent,
+        found: foundMarker,
+    };
+}
+
 /**
  * 提取自动序号标记信息
  */
 export function extractAutoNumberMarkerInfo(text: string): IAutoNumberMarkerInfo | null {
-    const marker = parseMarker(text);
-    if (!marker) {
+    const result = extractAutoNumberMarkers(text);
+    if (!result.found) {
         return null;
     }
 
-    const { beforeContent, afterContent } = removeAutoNumberNearMarker(text, marker);
-
     return {
-        backupPrefix: marker.payload.backupPrefix,
-        number: marker.payload.number,
-        content: `${beforeContent}${afterContent}`,
+        backupPrefix: result.backupPrefix,
+        number: result.number,
+        content: result.content,
     };
 }
 
@@ -234,15 +276,43 @@ export function stripAutoNumberMarker(
     text: string,
     restoreBackupPrefix = false
 ): string {
-    const marker = parseMarker(text);
-    if (!marker) {
+    const result = extractAutoNumberMarkers(text);
+    if (!result.found) {
         return text;
     }
 
-    const { beforeContent, afterContent } = removeAutoNumberNearMarker(text, marker);
-    const backupPrefix = restoreBackupPrefix ? marker.payload.backupPrefix : "";
+    const backupPrefix = restoreBackupPrefix ? result.backupPrefix : "";
+    return `${backupPrefix}${result.content}`;
+}
 
-    return `${beforeContent}${backupPrefix}${afterContent}`;
+/**
+ * 基于现有标题内容生成带标记的自动序号文本。
+ * 无标记标题会完整保留用户输入前缀，只额外追加自动序号。
+ */
+export function buildAutoNumberedHeadingContent(
+    headingContent: string,
+    generatedNumber: string,
+    detectLegacyPrefix = false
+): string {
+    const markerInfo = extractAutoNumberMarkerInfo(headingContent);
+    const restoredContent = markerInfo
+        ? `${markerInfo.backupPrefix}${markerInfo.content}`
+        : headingContent;
+
+    let backupPrefix = markerInfo?.backupPrefix || "";
+    if (!backupPrefix && detectLegacyPrefix) {
+        backupPrefix = extractLegacyAutoNumberPrefix(
+            restoredContent,
+            generatedNumber
+        );
+    }
+
+    const contentWithoutPrefix =
+        backupPrefix && restoredContent.startsWith(backupPrefix)
+            ? restoredContent.substring(backupPrefix.length)
+            : restoredContent;
+
+    return `${addAutoNumberMarker(generatedNumber, backupPrefix)}${contentWithoutPrefix}`;
 }
 
 interface IMarkdownHeadingParts {
