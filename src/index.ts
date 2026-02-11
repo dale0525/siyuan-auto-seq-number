@@ -6,6 +6,7 @@ import {
     extractAutoNumberMarkerInfo,
     extractLegacyAutoNumberPrefix,
     generateHeaderNumber,
+    splitMarkdownHeading,
     stripAutoNumberMarker,
 } from "./utils/header_utils";
 import {
@@ -511,10 +512,14 @@ export default class HeaderNumberPlugin extends Plugin {
                 );
                 Object.assign(counters, newCounters);
 
-                const markerInfo = extractAutoNumberMarkerInfo(heading.markdown);
+                const headingParts = splitMarkdownHeading(heading.markdown);
+                const headingPrefix = headingParts?.prefix || "";
+                const headingContent = headingParts?.content || heading.markdown;
+
+                const markerInfo = extractAutoNumberMarkerInfo(headingContent);
                 const restoredContent = markerInfo
                     ? markerInfo.backupPrefix + markerInfo.content
-                    : heading.markdown;
+                    : headingContent;
 
                 let backupPrefix = markerInfo?.backupPrefix || "";
                 if (!backupPrefix) {
@@ -528,7 +533,8 @@ export default class HeaderNumberPlugin extends Plugin {
                     : restoredContent;
 
                 updates[heading.id] =
-                    addAutoNumberMarker(number, backupPrefix) + contentWithoutPrefix;
+                    `${headingPrefix}${addAutoNumberMarker(number, backupPrefix)}` +
+                    contentWithoutPrefix;
             }
 
             this.changeDocEnableStatus(true);
