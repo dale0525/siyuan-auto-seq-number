@@ -28,6 +28,7 @@ interface ITextWithoutAutoNumber {
 
 interface IMarkerExtractionResult {
     backupPrefix: string;
+    backupPrefixInsertIndex: number | null;
     number: string;
     content: string;
     found: boolean;
@@ -220,6 +221,7 @@ function extractAutoNumberMarkers(text: string): IMarkerExtractionResult {
     let remainingContent = text;
     let foundMarker = false;
     let backupPrefix = "";
+    let backupPrefixInsertIndex: number | null = null;
     let number = "";
     let maxRound = 20;
 
@@ -233,25 +235,30 @@ function extractAutoNumberMarkers(text: string): IMarkerExtractionResult {
         if (!number && marker.payload.number) {
             number = marker.payload.number;
         }
-        if (!backupPrefix && marker.payload.backupPrefix) {
-            backupPrefix = marker.payload.backupPrefix;
-        }
 
         const { beforeContent, afterContent } = removeAutoNumberNearMarker(
             remainingContent,
             marker
         );
+
+        if (!backupPrefix && marker.payload.backupPrefix) {
+            backupPrefix = marker.payload.backupPrefix;
+            backupPrefixInsertIndex = beforeContent.length;
+        }
+
         remainingContent = `${beforeContent}${afterContent}`;
         maxRound--;
     }
 
     return {
         backupPrefix,
+        backupPrefixInsertIndex,
         number,
         content: remainingContent,
         found: foundMarker,
     };
 }
+
 
 /**
  * 提取自动序号标记信息
@@ -281,8 +288,20 @@ export function stripAutoNumberMarker(
         return text;
     }
 
-    const backupPrefix = restoreBackupPrefix ? result.backupPrefix : "";
-    return `${backupPrefix}${result.content}`;
+    if (!restoreBackupPrefix || !result.backupPrefix) {
+        return result.content;
+    }
+
+    const insertIndex = Math.max(
+        0,
+        Math.min(result.backupPrefixInsertIndex ?? 0, result.content.length)
+    );
+
+    return (
+        result.content.slice(0, insertIndex) +
+        result.backupPrefix +
+        result.content.slice(insertIndex)
+    );
 }
 
 /**
