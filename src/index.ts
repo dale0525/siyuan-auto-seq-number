@@ -1,11 +1,13 @@
 import { Plugin, Setting, showMessage } from "siyuan";
 import { setCursorToEnd } from "./utils/dom_operate";
+import { isVersionGreaterOrEqual } from "./utils/version_utils";
 import { IPluginConfig } from "./types";
 import {
     addAutoNumberMarker,
     extractAutoNumberMarkerInfo,
     extractLegacyAutoNumberPrefix,
     generateHeaderNumber,
+    splitMarkdownHeading,
     stripAutoNumberMarker,
 } from "./utils/header_utils";
 import {
@@ -37,6 +39,8 @@ const DEFAULT_CONFIG: IPluginConfig = {
 
 const TOP_BAR_ICON_SVG =
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>';
+
+const BULK_API_MIN_VERSION = "3.1.25";
 
 export default class HeaderNumberPlugin extends Plugin {
     public config!: IPluginConfig;
@@ -479,6 +483,26 @@ export default class HeaderNumberPlugin extends Plugin {
         ).sort((a, b) => a - b);
     }
 
+    private splitHeadingMarkdown(
+        markdown: string
+    ): { prefix: string; content: string } {
+        const directParts = splitMarkdownHeading(markdown);
+        if (directParts) {
+            return directParts;
+        }
+
+        const restoredMarkdown = stripAutoNumberMarker(markdown, true);
+        const restoredParts = splitMarkdownHeading(restoredMarkdown);
+        if (restoredParts) {
+            return restoredParts;
+        }
+
+        return {
+            prefix: "",
+            content: markdown,
+        };
+    }
+
     private async updateDocNumbering(protyle: any) {
         const docId = this.getDocId(protyle);
         if (!docId) return;
@@ -511,10 +535,14 @@ export default class HeaderNumberPlugin extends Plugin {
                 );
                 Object.assign(counters, newCounters);
 
-                const markerInfo = extractAutoNumberMarkerInfo(heading.markdown);
+                const headingParts = this.splitHeadingMarkdown(heading.markdown);
+                const headingPrefix = headingParts.prefix;
+                const headingContent = headingParts.content;
+
+                const markerInfo = extractAutoNumberMarkerInfo(headingContent);
                 const restoredContent = markerInfo
                     ? markerInfo.backupPrefix + markerInfo.content
-                    : heading.markdown;
+                    : headingContent;
 
                 let backupPrefix = markerInfo?.backupPrefix || "";
                 if (!backupPrefix) {
@@ -528,7 +556,8 @@ export default class HeaderNumberPlugin extends Plugin {
                     : restoredContent;
 
                 updates[heading.id] =
-                    addAutoNumberMarker(number, backupPrefix) + contentWithoutPrefix;
+                    `${headingPrefix}${addAutoNumberMarker(number, backupPrefix)}` +
+                    contentWithoutPrefix;
             }
 
             this.changeDocEnableStatus(true);
@@ -605,6 +634,6 @@ export default class HeaderNumberPlugin extends Plugin {
 
     private canUseBulkApi() {
         // 如果版本号小于3.1.25，则不能使用批量更新
-        return this.version >= "3.1.25";
+        return isVersionGreaterOrEqual(this.version, BULK_API_MIN_VERSION);
     }
 }

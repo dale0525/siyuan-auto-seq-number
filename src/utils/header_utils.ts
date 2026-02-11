@@ -9,6 +9,12 @@ interface IAutoMarkerPayload {
     number: string;
 }
 
+interface IParsedMarker {
+    payload: IAutoMarkerPayload;
+    markerStartIndex: number;
+    markerEndIndex: number;
+}
+
 export interface IAutoNumberMarkerInfo {
     backupPrefix: string;
     number: string;
@@ -66,24 +72,23 @@ function decodeHiddenText(text: string): string | null {
     return decoded;
 }
 
-function parseMarker(text: string): {
-    payload: IAutoMarkerPayload;
-    markerEndIndex: number;
-} | null {
-    if (!text.startsWith(AUTO_NUMBER_MARKER_START)) {
+function parseMarker(text: string): IParsedMarker | null {
+    const markerStartIndex = text.indexOf(AUTO_NUMBER_MARKER_START);
+    if (markerStartIndex === -1) {
         return null;
     }
 
+    const markerPayloadStart = markerStartIndex + AUTO_NUMBER_MARKER_START.length;
     const markerEndIndex = text.indexOf(
         AUTO_NUMBER_MARKER_END,
-        AUTO_NUMBER_MARKER_START.length
+        markerPayloadStart
     );
     if (markerEndIndex === -1) {
         return null;
     }
 
     const encodedPayload = text.substring(
-        AUTO_NUMBER_MARKER_START.length,
+        markerPayloadStart,
         markerEndIndex
     );
     const decodedPayload = decodeHiddenText(encodedPayload);
@@ -105,6 +110,7 @@ function parseMarker(text: string): {
                 backupPrefix: payload.backupPrefix,
                 number: payload.number,
             },
+            markerStartIndex,
             markerEndIndex,
         };
     } catch {
@@ -174,10 +180,11 @@ export function extractAutoNumberMarkerInfo(text: string): IAutoNumberMarkerInfo
         return null;
     }
 
+    const beforeMarker = text.substring(0, marker.markerStartIndex);
     const afterMarker = text.substring(
         marker.markerEndIndex + AUTO_NUMBER_MARKER_END.length
     );
-    const content =
+    const contentAfterNumber =
         marker.payload.number && afterMarker.startsWith(marker.payload.number)
             ? afterMarker.substring(marker.payload.number.length)
             : afterMarker;
@@ -185,7 +192,7 @@ export function extractAutoNumberMarkerInfo(text: string): IAutoNumberMarkerInfo
     return {
         backupPrefix: marker.payload.backupPrefix,
         number: marker.payload.number,
-        content,
+        content: `${beforeMarker}${contentAfterNumber}`,
     };
 }
 
@@ -196,13 +203,42 @@ export function stripAutoNumberMarker(
     text: string,
     restoreBackupPrefix = false
 ): string {
-    const markerInfo = extractAutoNumberMarkerInfo(text);
-    if (!markerInfo) {
+    const marker = parseMarker(text);
+    if (!marker) {
         return text;
     }
 
-    const prefix = restoreBackupPrefix ? markerInfo.backupPrefix : "";
-    return `${prefix}${markerInfo.content}`;
+    const beforeMarker = text.substring(0, marker.markerStartIndex);
+    const afterMarker = text.substring(
+        marker.markerEndIndex + AUTO_NUMBER_MARKER_END.length
+    );
+    const contentAfterNumber =
+        marker.payload.number && afterMarker.startsWith(marker.payload.number)
+            ? afterMarker.substring(marker.payload.number.length)
+            : afterMarker;
+    const backupPrefix = restoreBackupPrefix ? marker.payload.backupPrefix : "";
+
+    return `${beforeMarker}${backupPrefix}${contentAfterNumber}`;
+}
+
+interface IMarkdownHeadingParts {
+    prefix: string;
+    content: string;
+}
+
+/**
+ * 拆分 markdown 标题前缀（# 和空格）以及实际内容
+ */
+export function splitMarkdownHeading(text: string): IMarkdownHeadingParts | null {
+    const matched = text.match(/^(\s*#{1,6}\s*)([\s\S]*)$/);
+    if (!matched) {
+        return null;
+    }
+
+    return {
+        prefix: matched[1],
+        content: matched[2],
+    };
 }
 
 function buildLegacyNumberCandidates(number: string): string[] {
