@@ -230,7 +230,7 @@ interface IMarkdownHeadingParts {
  * 拆分 markdown 标题前缀（# 和空格）以及实际内容
  */
 export function splitMarkdownHeading(text: string): IMarkdownHeadingParts | null {
-    const matched = text.match(/^(\s*#{1,6}\s+)([\s\S]*)$/);
+    const matched = text.match(/^(\s*#{1,6}\s*)([\s\S]*)$/);
     if (!matched) {
         return null;
     }

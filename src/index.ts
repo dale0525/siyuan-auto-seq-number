@@ -480,6 +480,26 @@ export default class HeaderNumberPlugin extends Plugin {
         ).sort((a, b) => a - b);
     }
 
+    private splitHeadingMarkdown(
+        markdown: string
+    ): { prefix: string; content: string } {
+        const directParts = splitMarkdownHeading(markdown);
+        if (directParts) {
+            return directParts;
+        }
+
+        const restoredMarkdown = stripAutoNumberMarker(markdown, true);
+        const restoredParts = splitMarkdownHeading(restoredMarkdown);
+        if (restoredParts) {
+            return restoredParts;
+        }
+
+        return {
+            prefix: "",
+            content: markdown,
+        };
+    }
+
     private async updateDocNumbering(protyle: any) {
         const docId = this.getDocId(protyle);
         if (!docId) return;
@@ -512,9 +532,9 @@ export default class HeaderNumberPlugin extends Plugin {
                 );
                 Object.assign(counters, newCounters);
 
-                const headingParts = splitMarkdownHeading(heading.markdown);
-                const headingPrefix = headingParts?.prefix || "";
-                const headingContent = headingParts?.content || heading.markdown;
+                const headingParts = this.splitHeadingMarkdown(heading.markdown);
+                const headingPrefix = headingParts.prefix;
+                const headingContent = headingParts.content;
 
                 const markerInfo = extractAutoNumberMarkerInfo(headingContent);
                 const restoredContent = markerInfo
