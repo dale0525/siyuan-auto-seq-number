@@ -1,0 +1,15 @@
+[workspace]
+name = "siyuan-auto-seq-number"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+nodejs = "20.*"
+pnpm = "8.*"
+
+[tasks.install]
+cmd = "pnpm install --frozen-lockfile"
+
+[tasks.build]
+depends-on = ["install"]
+cmd = "pnpm run build"
