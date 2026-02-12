@@ -18,6 +18,9 @@ jobs:
         pixi-version: v0.62.2
         cache: true
 
+    - name: Install dependencies
+      run: pixi run install
+
     - name: Lint
       run: pixi run pnpm run lint
 

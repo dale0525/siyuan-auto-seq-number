@@ -18,11 +18,11 @@ After installation, configure it in plugin settings:
 - Currently, each heading level supports up to 99 items.
 
 ## Changelog
-### 2.2.0
+### 2.2.1
 - Refactored and optimized logic again, improving large-document performance.
 - Added "clear all heading numbers", which removes all heading numbering (including user-written numbering) via right-click on the plugin button.
 
-*p.s. It has been almost 3 years since I first published this plugin. I have not personally used SiYuan for over 2 years. I originally planned to leave it as-is, but users kept opening issues, so I decided to maintain it again. Yesterday I used AI and shipped several versions without real testing, which made things messier. Today I reinstalled SiYuan and debugged it properly. At least based on my own testing, it is now stable.*
+*p.s. It has been almost 3 years since I first published this plugin. I have not personally used SiYuan for over 2 years. I originally planned to leave it as-is, but users kept opening issues, so I decided to maintain it again. Yesterday I used AI and shipped several versions without real testing, which made things messier. Today I reinstalled SiYuan and debugged it properly. At least based on my own testing, it is now stable. Apologize to users who updated to 2.0.3-2.0.X versions. You can use the right-click menu on the plugin button to clear all heading numbers and then re-enable numbering.*
 
 *I also did not expect this plugin to pass 5000+ downloads. If you run into issues, feel free to open an issue. I will prioritize serious problems.*
 
