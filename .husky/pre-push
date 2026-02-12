@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+pixi run pnpm run verify

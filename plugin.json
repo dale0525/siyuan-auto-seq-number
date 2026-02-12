@@ -2,8 +2,8 @@
   "name": "siyuan-auto-seq-number",
   "author": "Logic Tan",
   "url": "https://github.com/dale0525/siyuan-auto-seq-number",
-  "version": "2.0.2",
-  "minAppVersion": "2.11.1",
+  "version": "2.2.0",
+  "minAppVersion": "3.1.25",
   "backends": [
     "all"
   ],
@@ -19,8 +19,9 @@
     "zh_CN": "自动为标题生成序号的思源笔记插件"
   },
   "readme": {
-    "default": "README.md",
-    "zh_CN": "README_zh_CN.md"
+    "default": "README_zh_CN.md",
+    "zh_CN": "README_zh_CN.md",
+    "en_US": "README.md"
   },
   "keywords": [
     "序号",

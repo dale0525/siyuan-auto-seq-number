@@ -18,5 +18,11 @@
     "updateError": "Error updating header numbers",
     "updateErrorMsg": "Failed to update header numbers",
     "clearError": "Error clearing header numbers",
-    "clearErrorMsg": "Failed to clear header numbers"
+    "clearErrorMsg": "Failed to clear header numbers",
+    "clearAllHeadingNumbers": "Clear All Header Numbers",
+    "clearAllHeadingNumbersDesc": "Clear all heading numbers in current document (auto and manual), then disable auto-numbering for current document",
+    "clearAllSuccessMsg": "Cleared all header numbers in current document",
+    "clearAllError": "Error clearing all header numbers",
+    "clearAllErrorMsg": "Failed to clear all header numbers",
+    "noActiveDocumentMsg": "No active document to process"
 }

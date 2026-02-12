@@ -1,101 +1,60 @@
-[简体中文](https://github.com/dale0525/siyuan-auto-seq-number//blob/main/README_zh_CN.md)
+[Simplified Chinese](https://github.com/dale0525/siyuan-auto-seq-number//blob/main/README_zh_CN.md)
 
-# SiYuan Note Title Auto Numbering Plugin
-A plugin for SiYuan Note that automatically generates numbers for headings.
+# SiYuan Note Heading Numbering Plugin
+A SiYuan plugin that automatically generates heading numbers.
 
 ## Usage
-After installing the plugin, a button will be added to the top-right corner to generate/clear numbers for the current note. Clicking it will toggle between generation and clearing states. The button is in activated status when the feature is turned on for current note.
-If the current note is configured to be generated, the numbers will be refreshed when opening or refreshing the note.
-After installation, please go to the plugin settings page first:
-- Default Enable: If turned on, new notes will have the number generation feature enabled by default
-- Real-time Update: If turned on and the current note has number generation enabled, it will trigger number updates when creating a new block. (Updates after 2 seconds of stopping input to prevent interruption of ongoing edits)
-
-  **Since updating numbers will trigger updates to the actual content of all blocks, it may cause some lag. Please enable with discretion.*
-- h1-h6 heading format: The format of generated numbers, see settings page description
-- Reset: Initialize settings. Will restart SiYuan Note after clicking. Will not delete settings for whether individual documents have number generation enabled.
+After installing the plugin, a button appears in the top-right corner to generate/clear numbering for the current note. Clicking it toggles between enabled and disabled states. When numbering is enabled for the current note, this button is active.
+*Right-click the button to clear all heading numbers in the current note, including numbers originally written in content.*
+If the current note is configured as enabled, numbering will also refresh when opening or refreshing the note.
+After installation, configure it in plugin settings:
+- Default Enable: If enabled, new notes turn on auto numbering by default.
+- Real-time Update: If enabled and current note numbering is enabled, numbering updates when creating a new block. (It updates after 2 seconds of inactivity to avoid interrupting editing.)
+- h1-h6 heading format: Numbering format for each level (see settings page description).
+- Reset: Reset all settings. SiYuan will restart after clicking. Per-document enable/disable states are preserved.
 
 ## Known Issues
-- Since updating numbers triggers updates to the actual content of all blocks, there may be brief lag during generation and clearing. It is recommended to avoid editing during this time.
-- Currently only supports up to 99 headings at the same level (should be sufficient)
+- Because numbering updates modify the actual content of blocks, there may be short lag when generating or clearing. Avoid editing during that moment.
+- Currently, each heading level supports up to 99 items.
 
 ## Changelog
+### 2.2.0
+- Refactored and optimized logic again, improving large-document performance.
+- Added "clear all heading numbers", which removes all heading numbering (including user-written numbering) via right-click on the plugin button.
+
+*p.s. It has been almost 3 years since I first published this plugin. I have not personally used SiYuan for over 2 years. I originally planned to leave it as-is, but users kept opening issues, so I decided to maintain it again. Yesterday I used AI and shipped several versions without real testing, which made things messier. Today I reinstalled SiYuan and debugged it properly. At least based on my own testing, it is now stable.*
+
+*I also did not expect this plugin to pass 5000+ downloads. If you run into issues, feel free to open an issue. I will prioritize serious problems.*
+
+*Also, a small self-promo: I am building another note app, [SecondLoop](https://github.com/dale0525/SecondLoop). If you want to write notes freely without heavy structure management, and rely more on search + AI later, you can check it out.*
+
+### 2.1.0
+- Rolled back to 2.0.2.
+
+### 2.0.3 - 2.0.X
+- Some unsuccessful optimization attempts.
+
 ### 2.0.2
-- Fixed the issue when enabling Chinese heading.
-- Display enable status directly through top button status. Removed status bar notifications.
-- Optimize settings panel.
+- Fixed issues when enabling Chinese numbering.
+- Top button now directly reflects per-document enable state; removed status bar hint.
+- Optimized settings UI.
 
 ### 2.0.1
-- Fixed the issue that markdown formats in header will disappear when toggling on/off the plugin.
+- Fixed issue where inline formatting in headings disappeared after adding/removing numbering.
 
 ### 2.0.0
-- Refactored logic, no longer using pseudo-css to display heading numbers, but directly modifying the text content in notes. Therefore, it remains effective in outline and export.
-- Should resolve all issues.
+- Refactored logic: no longer uses pseudo-CSS numbering. It now directly modifies note text content, so numbering also works in outline and export.
+- Should have resolved all historical issues.
 
-**Thanks to cursor for assistance*
+**Thanks to Cursor for the help**
 
 ### 1.0.1
-- Fixed issue where undefined was displayed when numbers were greater than 6
+- Fixed `undefined` display when number count was greater than 6.
 
 ### 1.0.0
-- Settings can customize numbers for each heading level
-- Pausing updates unless there are bugs
+- Added configurable numbering format for each heading level.
+- Updates paused unless bug fixes are needed.
 
 ### 0.2.0
-- Changed trigger event to `loaded-protyle-static` ([#1](https://github.com/dale0525/siyuan-auto-seq-number/issues/1))
-- Changed to use ::before pseudo-element to implement numbering, and use SessionStorage to cache numbers to avoid number reset when focusing ([#2](https://github.com/dale0525/siyuan-auto-seq-number/issues/2), [#3](https://github.com/dale0525/siyuan-auto-seq-number/issues/3))
-
-## 安装方法
-
-1. 下载发布包
-2. 解压到思源笔记的插件目录
-3. 重启思源笔记
-4. 在设置中启用插件
-
-## 使用说明
-
-### 基本使用
-
-1. 在顶部工具栏中点击序号图标可以切换当前文档的序号状态
-2. 在状态栏可以查看当前文档的序号状态
-3. 编辑文档时，序号会自动更新
-
-### 配置说明
-
-在插件设置面板中可以进行以下配置：
-
-1. 设置默认是否启用序号
-2. 为每一级标题设置序号格式
-   - 使用 `{1}`, `{2}` 等作为序号占位符
-   - 例如：`{1}.` 会显示为 "1."
-   - 例如：`{1}.{2}` 会显示为 "1.1"
-3. 为每一级标题选择是否使用中文数字
-
-### 序号格式示例
-
-- `{1}. ` → "1. "
-- `{1}.{2} ` → "1.1 "
-- `第{1}章 ` → "第一章 "（当启用中文数字时）
-- `{1}.{2}.{3} ` → "1.1.1 "
-
-## 注意事项
-
-1. 序号更新有2秒的防抖延迟，以避免频繁更新
-2. 建议不要手动编辑序号，让插件自动管理
-3. 如果手动修改了标题层级，序号会自动调整
-
-## 开发
-
-```bash
-# 安装依赖
-npm install
-
-# 开发模式
-npm run dev
-
-# 构建
-npm run build
-```
-
-## 许可证
-
-MIT License
+- Changed trigger event to `loaded-protyle-static` ([#1](https://github.com/dale0525/siyuan-auto-seq-number/issues/1)).
+- Switched to `::before` pseudo-element numbering and `SessionStorage` caching to avoid reset on focus ([#2](https://github.com/dale0525/siyuan-auto-seq-number/issues/2), [#3](https://github.com/dale0525/siyuan-auto-seq-number/issues/3)).

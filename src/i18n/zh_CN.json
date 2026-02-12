@@ -18,5 +18,11 @@
     "updateError": "更新标题序号时出错",
     "updateErrorMsg": "更新标题序号失败",
     "clearError": "清除标题序号时出错",
-    "clearErrorMsg": "清除标题序号失败"
+    "clearErrorMsg": "清除标题序号失败",
+    "clearAllHeadingNumbers": "清理所有标题序号",
+    "clearAllHeadingNumbersDesc": "清理当前文档中所有标题序号（包括自动和手写），并禁用当前文档自动编号",
+    "clearAllSuccessMsg": "已清理当前文档所有标题序号",
+    "clearAllError": "清理所有标题序号时出错",
+    "clearAllErrorMsg": "清理所有标题序号失败",
+    "noActiveDocumentMsg": "当前没有可操作的文档"
 }

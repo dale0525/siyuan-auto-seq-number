@@ -4,14 +4,14 @@
  * @returns 转换后的中文数字
  */
 export function num2Chinese(num: number): string {
-    const units = ['', '十', '百', '千', '万'];
-    const numbers = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+    const units = ["", "十", "百", "千", "万"];
+    const numbers = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
     
     if (num === 0) return numbers[0];
-    if (num < 0) return '负' + num2Chinese(-num);
+    if (num < 0) return "负" + num2Chinese(-num);
     if (num < 10) return numbers[num];
     
-    let result = '';
+    let result = "";
     let temp = num;
     let unitIndex = 0;
     
@@ -29,11 +29,11 @@ export function num2Chinese(num: number): string {
     }
     
     // 处理特殊情况
-    result = result.replace(/零+$/, ''); // 移除末尾的零
-    result = result.replace(/零+/g, '零'); // 多个零合并为一个
+    result = result.replace(/零+$/, ""); // 移除末尾的零
+    result = result.replace(/零+/g, "零"); // 多个零合并为一个
     
     // 处理"一十"开头的情况
-    if (result.startsWith('一十')) {
+    if (result.startsWith("一十")) {
         result = result.substring(1);
     }
     
@@ -123,17 +123,17 @@ export function hasHeaderNumber(text: string, format: string): boolean {
     });
     
     // 转义正则表达式特殊字符
-    regexPattern = regexPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    regexPattern = regexPattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     
     // 还原占位符并替换为数字匹配模式
     tempMarkers.forEach((marker) => {
-        const numbers = ['0']; // 添加0作为可能的数字
+        const numbers = ["0"]; // 添加0作为可能的数字
         for (let i = 1; i <= 99; i++) {
             numbers.push(i.toString(), num2Chinese(i));
         }
         regexPattern = regexPattern.replace(
             marker,
-            `(${numbers.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`
+            `(${numbers.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`
         );
     });
     
@@ -161,22 +161,22 @@ export function removeHeaderNumber(text: string, format: string): string {
     });
     
     // 转义正则表达式特殊字符
-    regexPattern = regexPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    regexPattern = regexPattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     
     // 还原占位符并替换为数字匹配模式
     tempMarkers.forEach((marker) => {
-        const numbers = ['0']; // 添加0作为可能的数字
+        const numbers = ["0"]; // 添加0作为可能的数字
         for (let i = 1; i <= 99; i++) {
             numbers.push(i.toString(), num2Chinese(i));
         }
         regexPattern = regexPattern.replace(
             marker,
-            `(${numbers.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`
+            `(${numbers.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`
         );
     });
     
     const regex = new RegExp(`^${regexPattern}`);
-    return text.replace(regex, '');
+    return text.replace(regex, "");
 }
 
 /**

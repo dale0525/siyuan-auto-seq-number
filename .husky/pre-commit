@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+pixi run pnpm run lint:staged
+pixi run pnpm run test:smoke

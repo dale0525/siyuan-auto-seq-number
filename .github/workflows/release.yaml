@@ -28,6 +28,11 @@ jobs:
         pixi run build
         echo "zip_path=$(pwd)/package.zip" >> "$GITHUB_OUTPUT"
 
+    - name: Quality checks
+      run: |
+        pixi run pnpm run lint
+        pixi run pnpm test
+
     - name: Get Current Version
       id: version
       run: |
