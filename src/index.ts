@@ -767,11 +767,11 @@ export default class HeaderNumberPlugin extends Plugin {
 
         const policy = resolveDynamicLoadingPolicy(docId);
         const activeProtyle = this.getActiveProtyleForDoc(docId);
-        const reloaded = activeProtyle
-            ? reloadActiveProtyleView(activeProtyle, false)
-            : false;
-        if (!reloaded && policy.allowLoadedDomFallbackForClear && activeProtyle) {
+        if (policy.allowLoadedDomFallbackForClear && activeProtyle) {
             await this.applyDomClearFallback(activeProtyle);
+        }
+        if (activeProtyle) {
+            reloadActiveProtyleView(activeProtyle, false);
         }
     }
 
@@ -780,15 +780,11 @@ export default class HeaderNumberPlugin extends Plugin {
 
         const policy = resolveDynamicLoadingPolicy(docId);
         const activeProtyle = this.getActiveProtyleForDoc(docId);
-        const reloaded = activeProtyle
-            ? reloadActiveProtyleView(activeProtyle, false)
-            : false;
-        if (
-            !reloaded &&
-            policy.allowLoadedDomFallbackForClearAll &&
-            activeProtyle
-        ) {
+        if (policy.allowLoadedDomFallbackForClearAll && activeProtyle) {
             await this.applyDomClearAllFallback(activeProtyle);
+        }
+        if (activeProtyle) {
+            reloadActiveProtyleView(activeProtyle, false);
         }
     }
 
