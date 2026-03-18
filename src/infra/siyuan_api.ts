@@ -14,6 +14,11 @@ interface ISqlHeadingRow {
     subtype: string;
 }
 
+interface IBlockKramdownData {
+    id: string;
+    kramdown: string;
+}
+
 export interface SiyuanApi {
     getVersion(): Promise<string>;
     flushTransactions(): Promise<void>;
@@ -68,6 +73,52 @@ async function updateBlocksBatch(
     });
 }
 
+function reorderHeadingRowsByKramdown(
+    rows: ISqlHeadingRow[],
+    kramdown: string
+): ISqlHeadingRow[] {
+    if (!kramdown) {
+        return rows;
+    }
+
+    const orderedIds: string[] = [];
+    const lines = kramdown.split(/\r?\n/u);
+
+    for (let index = 0; index < lines.length - 1; index++) {
+        const currentLine = lines[index];
+        const nextLine = lines[index + 1];
+
+        if (!/^#{1,6}\s+/u.test(currentLine)) {
+            continue;
+        }
+
+        const idMatch = nextLine.match(/^\{:[^\n]*\bid="([^"]+)"/u);
+        if (!idMatch) {
+            continue;
+        }
+
+        orderedIds.push(idMatch[1]);
+    }
+
+    if (orderedIds.length === 0) {
+        return rows;
+    }
+
+    const rowById = new Map(rows.map((row) => [row.id, row]));
+    const orderedRows: ISqlHeadingRow[] = [];
+
+    for (const id of orderedIds) {
+        const row = rowById.get(id);
+        if (!row) {
+            continue;
+        }
+        orderedRows.push(row);
+        rowById.delete(id);
+    }
+
+    return [...orderedRows, ...rowById.values()];
+}
+
 export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
     let versionCache: string | null = null;
 
@@ -94,7 +145,24 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
             stmt: sql,
         });
 
-        return rows
+        let orderedRows = rows;
+        try {
+            const kramdownData = await requestApi<IBlockKramdownData>(
+                fetchImpl,
+                "/api/block/getBlockKramdown",
+                {
+                    id: docId,
+                }
+            );
+            orderedRows = reorderHeadingRowsByKramdown(
+                rows,
+                kramdownData.kramdown || ""
+            );
+        } catch {
+            // Fall back to SQL order on versions/environments without kramdown support.
+        }
+
+        return orderedRows
             .filter((row) => typeof row.id === "string")
             .map((row) => ({
                 id: row.id,
