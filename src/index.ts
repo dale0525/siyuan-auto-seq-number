@@ -10,6 +10,7 @@ import {
 } from "./plugin/dom_heading_fallback";
 import { updateDomBlocksDirectly } from "./plugin/dom_block_updater";
 import { resolveDynamicLoadingPolicy } from "./plugin/dynamic_loading_policy";
+import { reloadActiveProtyleView } from "./plugin/protyle_reload";
 import { resolveDocEnabled } from "./plugin/doc_enable";
 import { resolveDocId } from "./plugin/doc_id";
 import { routeToggleNumbering } from "./plugin/index_controller";
@@ -766,7 +767,10 @@ export default class HeaderNumberPlugin extends Plugin {
 
         const policy = resolveDynamicLoadingPolicy(docId);
         const activeProtyle = this.getActiveProtyleForDoc(docId);
-        if (policy.allowLoadedDomFallbackForClear && activeProtyle) {
+        const reloaded = activeProtyle
+            ? reloadActiveProtyleView(activeProtyle, false)
+            : false;
+        if (!reloaded && policy.allowLoadedDomFallbackForClear && activeProtyle) {
             await this.applyDomClearFallback(activeProtyle);
         }
     }
@@ -776,7 +780,14 @@ export default class HeaderNumberPlugin extends Plugin {
 
         const policy = resolveDynamicLoadingPolicy(docId);
         const activeProtyle = this.getActiveProtyleForDoc(docId);
-        if (policy.allowLoadedDomFallbackForClearAll && activeProtyle) {
+        const reloaded = activeProtyle
+            ? reloadActiveProtyleView(activeProtyle, false)
+            : false;
+        if (
+            !reloaded &&
+            policy.allowLoadedDomFallbackForClearAll &&
+            activeProtyle
+        ) {
             await this.applyDomClearAllFallback(activeProtyle);
         }
     }
