@@ -1,6 +1,6 @@
 {
   "name": "siyuan-auto-seq-number",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "A SiYuan Plugin to auto generate sequence number for headers",
   "main": ".src/index.js",
   "scripts": {
@@ -42,4 +42,3 @@
     "zip-webpack-plugin": "^4.0.1"
   }
 }
-
