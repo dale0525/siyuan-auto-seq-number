@@ -12,11 +12,11 @@
   ],
   "displayName": {
     "default": "Auto Header Sequence Number",
-    "zh_CN": "\u81ea\u52a8\u6807\u9898\u5e8f\u53f7"
+    "zh_CN": "自动标题序号"
   },
   "description": {
     "default": "A SiYuan Plugin to auto generate sequence number for headers",
-    "zh_CN": "\u81ea\u52a8\u4e3a\u6807\u9898\u751f\u6210\u5e8f\u53f7\u7684\u601d\u6e90\u7b14\u8bb0\u63d2\u4ef6"
+    "zh_CN": "自动为标题生成序号的思源笔记插件"
   },
   "readme": {
     "default": "README_zh_CN.md",
@@ -24,8 +24,8 @@
     "en_US": "README.md"
   },
   "keywords": [
-    "\u5e8f\u53f7",
-    "\u6807\u9898",
+    "序号",
+    "标题",
     "header"
   ]
 }
