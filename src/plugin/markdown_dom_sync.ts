@@ -8,6 +8,23 @@ interface IQueryRootLike {
     querySelector?: (selector: string) => unknown;
 }
 
+interface IBlockElementLike extends IQueryRootLike {
+    getAttribute?: (name: string) => string | null;
+}
+
+interface ITransactionalEditorLike {
+    updateBatchTransaction?: (
+        nodeElements: Element[],
+        cb: (element: HTMLElement) => void
+    ) => void;
+}
+
+interface IRenderedHeadingUpdate {
+    id: string;
+    blockElement: IBlockElementLike;
+    htmlContent: string;
+}
+
 function extractEditableContentWithDomParser(blockDom: string): string | null {
     if (typeof DOMParser === "undefined") {
         return null;
@@ -67,13 +84,47 @@ function extractEditableContentWithPattern(blockDom: string): string | null {
     return blockDom.slice(contentStart, contentEnd);
 }
 
+function resolveCandidates(protyle: any): any[] {
+    return [
+        protyle,
+        protyle?.protyle,
+        protyle?.model?.editor,
+        protyle?.model?.editor?.protyle,
+    ].filter(Boolean);
+}
+
 function resolveBlockDomRenderer(protyle: any): BlockDomRenderer | null {
-    const renderer = protyle?.lute?.Md2BlockDOM;
-    if (typeof renderer !== "function") {
-        return null;
+    for (const candidate of resolveCandidates(protyle)) {
+        const renderer = candidate?.lute?.Md2BlockDOM;
+        if (typeof renderer === "function") {
+            return (markdown: string) => renderer.call(candidate.lute, markdown);
+        }
     }
 
-    return (markdown: string) => renderer.call(protyle.lute, markdown);
+    return null;
+}
+
+function resolveWysiwygRoot(protyle: any): IQueryRootLike | null {
+    for (const candidate of resolveCandidates(protyle)) {
+        const root = candidate?.wysiwyg?.element as IQueryRootLike | undefined;
+        if (root && typeof root.querySelector === "function") {
+            return root;
+        }
+    }
+
+    return null;
+}
+
+function resolveTransactionalEditor(
+    protyle: any
+): ITransactionalEditorLike | null {
+    for (const candidate of resolveCandidates(protyle)) {
+        if (typeof candidate?.updateBatchTransaction === "function") {
+            return candidate as ITransactionalEditorLike;
+        }
+    }
+
+    return null;
 }
 
 function getEditableElement(blockElement: unknown): IContentEditableLike | null {
@@ -91,6 +142,91 @@ function getEditableElement(blockElement: unknown): IContentEditableLike | null 
     }
 
     return editable;
+}
+
+function collectRenderedHeadingUpdates(
+    protyle: any,
+    updates: Record<string, string>
+): IRenderedHeadingUpdate[] {
+    const renderer = resolveBlockDomRenderer(protyle);
+    const root = resolveWysiwygRoot(protyle);
+    if (!renderer || !root || typeof root.querySelector !== "function") {
+        return [];
+    }
+
+    const renderedUpdates: IRenderedHeadingUpdate[] = [];
+    for (const [id, markdown] of Object.entries(updates)) {
+        const blockElement = root.querySelector(
+            `[data-node-id="${id}"]`
+        ) as IBlockElementLike | null;
+        if (!blockElement) {
+            continue;
+        }
+
+        const htmlContent = renderHeadingMarkdownToHtmlContent(markdown, renderer);
+        if (htmlContent === null) {
+            continue;
+        }
+
+        renderedUpdates.push({
+            id,
+            blockElement,
+            htmlContent,
+        });
+    }
+
+    return renderedUpdates;
+}
+
+function applyDirectDomUpdates(renderedUpdates: IRenderedHeadingUpdate[]): number {
+    let syncedCount = 0;
+    for (const renderedUpdate of renderedUpdates) {
+        const editable = getEditableElement(renderedUpdate.blockElement);
+        if (!editable) {
+            continue;
+        }
+
+        editable.innerHTML = renderedUpdate.htmlContent;
+        syncedCount += 1;
+    }
+
+    return syncedCount;
+}
+
+function applyBatchTransactionUpdates(
+    editor: ITransactionalEditorLike,
+    renderedUpdates: IRenderedHeadingUpdate[]
+): number {
+    const htmlContentById = new Map(
+        renderedUpdates.map((renderedUpdate) => [
+            renderedUpdate.id,
+            renderedUpdate.htmlContent,
+        ])
+    );
+    const nodeElements = renderedUpdates.map(
+        (renderedUpdate) => renderedUpdate.blockElement as unknown as Element
+    );
+
+    editor.updateBatchTransaction?.(nodeElements, (element: HTMLElement) => {
+        const blockId = element.getAttribute("data-node-id");
+        if (!blockId) {
+            return;
+        }
+
+        const htmlContent = htmlContentById.get(blockId);
+        if (!htmlContent) {
+            return;
+        }
+
+        const editable = getEditableElement(element);
+        if (!editable) {
+            return;
+        }
+
+        editable.innerHTML = htmlContent;
+    });
+
+    return nodeElements.length;
 }
 
 export function extractEditableContentFromBlockDom(
@@ -122,32 +258,15 @@ export function syncLoadedHeadingMarkdownUpdates(
     protyle: any,
     updates: Record<string, string>
 ): number {
-    const renderer = resolveBlockDomRenderer(protyle);
-    const root = protyle?.wysiwyg?.element as IQueryRootLike | undefined;
-    if (!renderer || !root || typeof root.querySelector !== "function") {
+    const renderedUpdates = collectRenderedHeadingUpdates(protyle, updates);
+    if (renderedUpdates.length === 0) {
         return 0;
     }
 
-    let syncedCount = 0;
-    for (const [id, markdown] of Object.entries(updates)) {
-        const blockElement = root.querySelector(`[data-node-id="${id}"]`);
-        if (!blockElement) {
-            continue;
-        }
-
-        const editable = getEditableElement(blockElement);
-        if (!editable) {
-            continue;
-        }
-
-        const htmlContent = renderHeadingMarkdownToHtmlContent(markdown, renderer);
-        if (htmlContent === null) {
-            continue;
-        }
-
-        editable.innerHTML = htmlContent;
-        syncedCount += 1;
+    const editor = resolveTransactionalEditor(protyle);
+    if (editor) {
+        return applyBatchTransactionUpdates(editor, renderedUpdates);
     }
 
-    return syncedCount;
+    return applyDirectDomUpdates(renderedUpdates);
 }
