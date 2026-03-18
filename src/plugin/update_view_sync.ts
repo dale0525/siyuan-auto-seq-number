@@ -1,7 +1,7 @@
 export type UpdateTrigger = "manual-toggle" | "realtime" | "load";
 
-export function shouldReloadActiveViewAfterUpdate(
-    trigger: UpdateTrigger
+export function shouldSyncLoadedViewAfterUpdate(
+    _trigger: UpdateTrigger
 ): boolean {
-    return trigger === "manual-toggle";
+    return true;
 }

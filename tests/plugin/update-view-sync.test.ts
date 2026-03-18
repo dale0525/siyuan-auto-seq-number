@@ -1,16 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { shouldReloadActiveViewAfterUpdate } from "../../src/plugin/update_view_sync";
+import { shouldSyncLoadedViewAfterUpdate } from "../../src/plugin/update_view_sync";
 
-test("manual toggle reloads active view after numbering update", () => {
-    assert.equal(shouldReloadActiveViewAfterUpdate("manual-toggle"), true);
+test("manual toggle syncs loaded view after numbering update", () => {
+    assert.equal(shouldSyncLoadedViewAfterUpdate("manual-toggle"), true);
 });
 
-test("realtime update does not reload active view", () => {
-    assert.equal(shouldReloadActiveViewAfterUpdate("realtime"), false);
+test("realtime update syncs loaded view", () => {
+    assert.equal(shouldSyncLoadedViewAfterUpdate("realtime"), true);
 });
 
-test("initial load does not reload active view", () => {
-    assert.equal(shouldReloadActiveViewAfterUpdate("load"), false);
+test("initial load syncs loaded view", () => {
+    assert.equal(shouldSyncLoadedViewAfterUpdate("load"), true);
 });
