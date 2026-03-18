@@ -11,6 +11,7 @@ import {
 import { updateDomBlocksDirectly } from "./plugin/dom_block_updater";
 import { resolveDynamicLoadingPolicy } from "./plugin/dynamic_loading_policy";
 import { reloadActiveProtyleView } from "./plugin/protyle_reload";
+import { shouldReloadActiveViewAfterUpdate, UpdateTrigger } from "./plugin/update_view_sync";
 import { resolveDocEnabled } from "./plugin/doc_enable";
 import { resolveDocId } from "./plugin/doc_id";
 import { routeToggleNumbering } from "./plugin/index_controller";
@@ -387,7 +388,10 @@ export default class HeaderNumberPlugin extends Plugin {
                         preservePrefixOnClear: true,
                         service: {
                             updateDocument: (docId: string) => {
-                                return this.updateDocNumberingById(docId);
+                                return this.updateDocNumberingById(
+                                    docId,
+                                    "manual-toggle"
+                                );
                             },
                             clearDocument: (
                                 docId: string,
@@ -553,7 +557,10 @@ export default class HeaderNumberPlugin extends Plugin {
                         );
 
                         if (policy.useDocumentSourceWhenAvailable && this.activeDocId) {
-                            await this.updateDocNumberingById(this.activeDocId);
+                            await this.updateDocNumberingById(
+                                this.activeDocId,
+                                "realtime"
+                            );
                         } else if (
                             policy.allowLoadedDomFallbackForUpdate &&
                             this.activeProtyle
@@ -746,9 +753,20 @@ export default class HeaderNumberPlugin extends Plugin {
         return this.numberingService as NumberingService;
     }
 
-    private async updateDocNumberingById(docId: string) {
+    private async updateDocNumberingById(
+        docId: string,
+        trigger: UpdateTrigger = "load"
+    ) {
         this.removeTimer();
         const updates = await this.getNumberingService().updateDocument(docId);
+
+        const activeProtyle = this.getActiveProtyleForDoc(docId);
+        if (
+            activeProtyle &&
+            shouldReloadActiveViewAfterUpdate(trigger)
+        ) {
+            reloadActiveProtyleView(activeProtyle, false);
+        }
 
         if (Object.keys(updates).length > 0) {
             this.restoreActiveBlockCursor();
@@ -792,7 +810,7 @@ export default class HeaderNumberPlugin extends Plugin {
         const docId = this.getDocId(protyle);
         try {
             if (docId) {
-                await this.updateDocNumberingById(docId);
+                await this.updateDocNumberingById(docId, "load");
             } else {
                 await this.applyDomNumberingFallback(protyle);
             }
