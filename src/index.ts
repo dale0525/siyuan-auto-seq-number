@@ -554,7 +554,7 @@ export default class HeaderNumberPlugin extends Plugin {
                         if (policy.useDocumentSourceWhenAvailable && this.activeDocId) {
                             await this.updateDocNumberingById(this.activeDocId);
                         } else if (
-                            policy.allowLoadedDomFallback &&
+                            policy.allowLoadedDomFallbackForUpdate &&
                             this.activeProtyle
                         ) {
                             const domUpdates = await this.applyDomNumberingFallback(
@@ -763,10 +763,22 @@ export default class HeaderNumberPlugin extends Plugin {
         await this.getNumberingService().clearDocument(docId, {
             preservePrefix,
         });
+
+        const policy = resolveDynamicLoadingPolicy(docId);
+        const activeProtyle = this.getActiveProtyleForDoc(docId);
+        if (policy.allowLoadedDomFallbackForClear && activeProtyle) {
+            await this.applyDomClearFallback(activeProtyle);
+        }
     }
 
     private async clearAllDocNumberingById(docId: string) {
         await this.getNumberingService().clearAllNumbering(docId);
+
+        const policy = resolveDynamicLoadingPolicy(docId);
+        const activeProtyle = this.getActiveProtyleForDoc(docId);
+        if (policy.allowLoadedDomFallbackForClearAll && activeProtyle) {
+            await this.applyDomClearAllFallback(activeProtyle);
+        }
     }
 
     private async updateDocNumbering(protyle: any) {

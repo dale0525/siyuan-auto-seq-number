@@ -7,12 +7,16 @@ test("document-backed updates disable loaded DOM fallback", () => {
     const policy = resolveDynamicLoadingPolicy("doc-1");
 
     assert.equal(policy.useDocumentSourceWhenAvailable, true);
-    assert.equal(policy.allowLoadedDomFallback, false);
+    assert.equal(policy.allowLoadedDomFallbackForUpdate, false);
+    assert.equal(policy.allowLoadedDomFallbackForClear, true);
+    assert.equal(policy.allowLoadedDomFallbackForClearAll, true);
 });
 
 test("detached editor keeps loaded DOM fallback", () => {
     const policy = resolveDynamicLoadingPolicy(null);
 
     assert.equal(policy.useDocumentSourceWhenAvailable, false);
-    assert.equal(policy.allowLoadedDomFallback, true);
+    assert.equal(policy.allowLoadedDomFallbackForUpdate, true);
+    assert.equal(policy.allowLoadedDomFallbackForClear, true);
+    assert.equal(policy.allowLoadedDomFallbackForClearAll, true);
 });

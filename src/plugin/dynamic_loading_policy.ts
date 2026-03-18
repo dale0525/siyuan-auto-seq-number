@@ -1,6 +1,8 @@
 export interface DynamicLoadingPolicy {
     useDocumentSourceWhenAvailable: boolean;
-    allowLoadedDomFallback: boolean;
+    allowLoadedDomFallbackForUpdate: boolean;
+    allowLoadedDomFallbackForClear: boolean;
+    allowLoadedDomFallbackForClearAll: boolean;
 }
 
 export function resolveDynamicLoadingPolicy(
@@ -9,12 +11,16 @@ export function resolveDynamicLoadingPolicy(
     if (docId) {
         return {
             useDocumentSourceWhenAvailable: true,
-            allowLoadedDomFallback: false,
+            allowLoadedDomFallbackForUpdate: false,
+            allowLoadedDomFallbackForClear: true,
+            allowLoadedDomFallbackForClearAll: true,
         };
     }
 
     return {
         useDocumentSourceWhenAvailable: false,
-        allowLoadedDomFallback: true,
+        allowLoadedDomFallbackForUpdate: true,
+        allowLoadedDomFallbackForClear: true,
+        allowLoadedDomFallbackForClearAll: true,
     };
 }
