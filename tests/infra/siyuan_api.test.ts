@@ -240,6 +240,85 @@ function createFakeFetchWithBatchFailure(version = "3.1.25") {
     };
 }
 
+function createFakeFetchWithKramdownOrder(version = "3.5.5") {
+    const calls: IFetchCall[] = [];
+
+    const fakeFetch: typeof fetch = (async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+    ) => {
+        const url = String(input);
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        calls.push({ url, body });
+
+        if (url === "/api/system/version") {
+            return new Response(
+                JSON.stringify({
+                    code: 0,
+                    msg: "",
+                    data: version,
+                }),
+                { status: 200 }
+            );
+        }
+
+        if (url === "/api/query/sql") {
+            return new Response(
+                JSON.stringify({
+                    code: 0,
+                    msg: "",
+                    data: [
+                        { id: "a", markdown: "# A", subtype: "h1", ial: "" },
+                        { id: "c", markdown: "## C", subtype: "h2", ial: "" },
+                        { id: "b", markdown: "## B", subtype: "h2", ial: "" },
+                    ],
+                }),
+                { status: 200 }
+            );
+        }
+
+        if (url === "/api/block/getBlockKramdown") {
+            return new Response(
+                JSON.stringify({
+                    code: 0,
+                    msg: "",
+                    data: {
+                        id: "doc-id",
+                        kramdown:
+                            '# A\n{: id="a"}\n\n## B\n{: id="b"}\n\n## C\n{: id="c"}',
+                    },
+                }),
+                { status: 200 }
+            );
+        }
+
+        if (
+            url === "/api/block/updateBlock" ||
+            url === "/api/block/batchUpdateBlock" ||
+            url === "/api/sqlite/flushTransaction" ||
+            url === "/api/attr/setBlockAttrs"
+        ) {
+            return new Response(
+                JSON.stringify({
+                    code: 0,
+                    msg: "",
+                    data: null,
+                }),
+                { status: 200 }
+            );
+        }
+
+        return new Response(JSON.stringify({ code: -1, msg: "unknown", data: null }), {
+            status: 404,
+        });
+    }) as typeof fetch;
+
+    return {
+        calls,
+        fetch: fakeFetch,
+    };
+}
+
 function createFakeFetchForMarkdownBridge() {
     const calls: IFetchCall[] = [];
 
@@ -613,6 +692,18 @@ test("getDocHeadingBlocks uses subtype-based SQL filter for compatibility", asyn
     const blocks = await api.getDocHeadingBlocks("doc-id");
     assert.equal(blocks.length, 1);
     assert.equal(blocks[0].id, "x");
+});
+
+test("getDocHeadingBlocks follows kramdown document order when SQL sort is unreliable", async () => {
+    const fake = createFakeFetchWithKramdownOrder();
+    const api = createSiyuanApi(fake.fetch);
+
+    const blocks = await api.getDocHeadingBlocks("doc-id");
+
+    assert.deepEqual(
+        blocks.map((block) => block.id),
+        ["a", "b", "c"]
+    );
 });
 
 test("flushTransactions is best-effort when endpoint is unavailable", async () => {

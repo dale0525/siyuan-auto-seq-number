@@ -1,6 +1,6 @@
 {
   "name": "siyuan-auto-seq-number",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "A SiYuan Plugin to auto generate sequence number for headers",
   "main": ".src/index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "lint": "eslint . --fix --cache",
     "dev": "webpack --mode development",
     "build": "webpack --mode production",
-    "test": "tsx --test tests/infra/siyuan_api.test.ts tests/numbering/heading_line.test.ts tests/numbering/marker_codec.test.ts tests/numbering/numbering_engine.test.ts tests/numbering/prefix_cleaner.test.ts tests/numbering/regression-cases.test.ts tests/plugin/doc-enable.test.ts tests/plugin/doc-id.test.ts tests/plugin/dom-block-updater.test.ts tests/plugin/dom-heading-fallback.test.ts tests/plugin/index-controller.test.ts tests/plugin/realtime-input.test.ts tests/plugin/realtime-trigger.test.ts tests/services/numbering_service.test.ts"
+    "test": "tsx --test tests/infra/siyuan_api.test.ts tests/numbering/heading_line.test.ts tests/numbering/marker_codec.test.ts tests/numbering/numbering_engine.test.ts tests/numbering/prefix_cleaner.test.ts tests/numbering/regression-cases.test.ts tests/plugin/doc-enable.test.ts tests/plugin/doc-id.test.ts tests/plugin/dom-block-updater.test.ts tests/plugin/dom-heading-fallback.test.ts tests/plugin/dynamic-loading-policy.test.ts tests/plugin/index-controller.test.ts tests/plugin/markdown-dom-sync.test.ts tests/plugin/protyle-reload.test.ts tests/plugin/realtime-input.test.ts tests/plugin/realtime-trigger.test.ts tests/plugin/update-view-sync.test.ts tests/services/numbering_service.test.ts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

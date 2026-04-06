@@ -9,6 +9,13 @@ import {
     IDomHeadingRecord,
 } from "./plugin/dom_heading_fallback";
 import { updateDomBlocksDirectly } from "./plugin/dom_block_updater";
+import { resolveDynamicLoadingPolicy } from "./plugin/dynamic_loading_policy";
+import { reloadActiveProtyleView } from "./plugin/protyle_reload";
+import { syncLoadedHeadingMarkdownUpdates } from "./plugin/markdown_dom_sync";
+import {
+    shouldSyncLoadedViewAfterUpdate,
+    UpdateTrigger,
+} from "./plugin/update_view_sync";
 import { resolveDocEnabled } from "./plugin/doc_enable";
 import { resolveDocId } from "./plugin/doc_id";
 import { routeToggleNumbering } from "./plugin/index_controller";
@@ -385,7 +392,10 @@ export default class HeaderNumberPlugin extends Plugin {
                         preservePrefixOnClear: true,
                         service: {
                             updateDocument: (docId: string) => {
-                                return this.updateDocNumberingById(docId);
+                                return this.updateDocNumberingById(
+                                    docId,
+                                    "manual-toggle"
+                                );
                             },
                             clearDocument: (
                                 docId: string,
@@ -546,7 +556,22 @@ export default class HeaderNumberPlugin extends Plugin {
             if (Date.now() - this.lastInputTime >= 2000) {
                 if (this.shouldUpdate) {
                     try {
-                        if (this.activeProtyle) {
+                        const policy = resolveDynamicLoadingPolicy(
+                            this.activeDocId
+                        );
+
+                        if (
+                            policy.useDocumentSourceWhenAvailable &&
+                            this.activeDocId
+                        ) {
+                            await this.updateDocNumberingById(
+                                this.activeDocId,
+                                "realtime"
+                            );
+                        } else if (
+                            policy.allowLoadedDomFallbackForUpdate &&
+                            this.activeProtyle
+                        ) {
                             const domUpdates = await this.applyDomNumberingFallback(
                                 this.activeProtyle
                             );
@@ -555,10 +580,6 @@ export default class HeaderNumberPlugin extends Plugin {
                                 this.shouldUpdate = false;
                                 return;
                             }
-                        }
-
-                        if (this.activeDocId) {
-                            await this.updateDocNumberingById(this.activeDocId);
                         } else if (this.activeProtyle) {
                             this.shouldUpdate = false;
                         }
@@ -739,16 +760,20 @@ export default class HeaderNumberPlugin extends Plugin {
         return this.numberingService as NumberingService;
     }
 
-    private async updateDocNumberingById(docId: string) {
+    private async updateDocNumberingById(
+        docId: string,
+        trigger: UpdateTrigger = "load"
+    ) {
         this.removeTimer();
-        let updates = await this.getNumberingService().updateDocument(docId);
+        const updates = await this.getNumberingService().updateDocument(docId);
 
         const activeProtyle = this.getActiveProtyleForDoc(docId);
-        if (activeProtyle) {
-            const domUpdates = await this.applyDomNumberingFallback(activeProtyle);
-            if (Object.keys(domUpdates).length > 0) {
-                updates = { ...updates, ...domUpdates };
-            }
+        if (
+            activeProtyle &&
+            Object.keys(updates).length > 0 &&
+            shouldSyncLoadedViewAfterUpdate(trigger)
+        ) {
+            syncLoadedHeadingMarkdownUpdates(activeProtyle, updates);
         }
 
         if (Object.keys(updates).length > 0) {
@@ -766,18 +791,26 @@ export default class HeaderNumberPlugin extends Plugin {
             preservePrefix,
         });
 
+        const policy = resolveDynamicLoadingPolicy(docId);
         const activeProtyle = this.getActiveProtyleForDoc(docId);
-        if (activeProtyle) {
+        if (policy.allowLoadedDomFallbackForClear && activeProtyle) {
             await this.applyDomClearFallback(activeProtyle);
+        }
+        if (activeProtyle) {
+            reloadActiveProtyleView(activeProtyle, false);
         }
     }
 
     private async clearAllDocNumberingById(docId: string) {
         await this.getNumberingService().clearAllNumbering(docId);
 
+        const policy = resolveDynamicLoadingPolicy(docId);
         const activeProtyle = this.getActiveProtyleForDoc(docId);
-        if (activeProtyle) {
+        if (policy.allowLoadedDomFallbackForClearAll && activeProtyle) {
             await this.applyDomClearAllFallback(activeProtyle);
+        }
+        if (activeProtyle) {
+            reloadActiveProtyleView(activeProtyle, false);
         }
     }
 
@@ -785,7 +818,7 @@ export default class HeaderNumberPlugin extends Plugin {
         const docId = this.getDocId(protyle);
         try {
             if (docId) {
-                await this.updateDocNumberingById(docId);
+                await this.updateDocNumberingById(docId, "load");
             } else {
                 await this.applyDomNumberingFallback(protyle);
             }
