@@ -514,7 +514,17 @@ export function clearAllHeadingNumbering(
     const attrs: Record<string, Record<string, string>> = {};
 
     for (const heading of headings) {
-        const parts = parseHeadingContent(heading);
+        const storedState = resolveStoredState(heading);
+        const attrRestoredMarkdown =
+            stateStorage === "attrs" && storedState
+                ? clearVisibleNumberingFromAttrs(heading, storedState, {
+                      preservePrefix: false,
+                  })
+                : heading.markdown;
+        const parts = parseHeadingContent({
+            ...heading,
+            markdown: attrRestoredMarkdown,
+        });
         if (!parts) {
             continue;
         }
@@ -529,7 +539,7 @@ export function clearAllHeadingNumbering(
             updates[heading.id] = restoredMarkdown;
         }
 
-        if (stateStorage === "attrs" && resolveStoredState(heading)) {
+        if (stateStorage === "attrs" && storedState) {
             if (hasStateChanged(heading, null)) {
                 attrs[heading.id] = buildNumberingStateAttrs(null);
             }

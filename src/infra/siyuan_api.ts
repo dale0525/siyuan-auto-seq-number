@@ -193,7 +193,8 @@ async function queryDocHeadingRows(
 
 export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
     let versionCache: string | null = null;
-    let supportsAttributeState = true;
+    let canReadAttributeState = true;
+    let canWriteAttributeState = true;
 
     async function getVersion(): Promise<string> {
         if (versionCache) {
@@ -214,14 +215,15 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
     async function getDocHeadingBlocks(docId: string): Promise<HeadingBlock[]> {
         let rows: ISqlHeadingRow[];
 
-        if (supportsAttributeState) {
+        if (canReadAttributeState) {
             try {
                 rows = await queryDocHeadingRows(fetchImpl, docId, true);
             } catch (error) {
                 if (!isIalColumnUnsupported(error)) {
                     throw error;
                 }
-                supportsAttributeState = false;
+                canReadAttributeState = false;
+                canWriteAttributeState = false;
                 rows = await queryDocHeadingRows(fetchImpl, docId, false);
             }
         } else {
@@ -234,7 +236,7 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
                 id: row.id,
                 markdown: row.markdown || "",
                 subtype: row.subtype || "",
-                attrs: supportsAttributeState ? parseInlineAttrs(row.ial) : {},
+                attrs: canReadAttributeState ? parseInlineAttrs(row.ial) : {},
             }));
     }
 
@@ -252,7 +254,7 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
     async function updateAttrs(
         attrs: Record<string, Record<string, string>>
     ): Promise<void> {
-        if (!supportsAttributeState || Object.keys(attrs).length === 0) {
+        if (!canWriteAttributeState || Object.keys(attrs).length === 0) {
             return;
         }
 
@@ -260,14 +262,14 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
             await updateAttrsBatch(fetchImpl, attrs);
         } catch (error) {
             if (isAttrEndpointUnsupported(error)) {
-                supportsAttributeState = false;
+                canWriteAttributeState = false;
             }
             throw error;
         }
     }
 
     function supportsAttributeNumberingState(): boolean {
-        return supportsAttributeState;
+        return canReadAttributeState && canWriteAttributeState;
     }
 
     return {

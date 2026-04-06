@@ -506,3 +506,54 @@ test("clear all flow still removes visible numbering when attribute state become
         a: "# Title A",
     });
 });
+
+test("clear flow still removes visible numbering on later runs after attr writes become unsupported", async () => {
+    let supportsAttributeState = true;
+    let markdown = "# 1. Title A";
+    const blockCalls: Array<Record<string, string>> = [];
+
+    const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return supportsAttributeState;
+        },
+        async getVersion() {
+            return "3.1.25";
+        },
+        async flushTransactions() {
+            return undefined;
+        },
+        async getDocHeadingBlocks() {
+            return [
+                {
+                    id: "a",
+                    subtype: "h1",
+                    markdown,
+                    attrs: {
+                        [AUTO_NUMBER_ATTR]: "1. ",
+                        [BACKUP_PREFIX_ATTR]: "",
+                        [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
+                    },
+                },
+            ];
+        },
+        async updateBlocks(updates) {
+            blockCalls.push(updates);
+            markdown = updates.a ?? markdown;
+        },
+        async updateAttrs() {
+            supportsAttributeState = false;
+            throw new Error("attrs unsupported");
+        },
+    };
+
+    const service = createNumberingService(api, CONFIG);
+
+    await service.clearDocument("doc-1", { preservePrefix: false });
+    markdown = "# 1. Title A";
+    const second = await service.clearDocument("doc-1", { preservePrefix: false });
+
+    assert.deepEqual(second, {
+        a: "# Title A",
+    });
+    assert.deepEqual(blockCalls, [{ a: "# Title A" }, { a: "# Title A" }]);
+});

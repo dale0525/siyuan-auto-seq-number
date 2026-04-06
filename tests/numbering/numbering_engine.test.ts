@@ -384,3 +384,27 @@ test("planHeadingUpdates skips unchanged headings and attrs", () => {
     assert.deepEqual(result.updates, {});
     assert.deepEqual(result.attrs, {});
 });
+
+test("clearAllHeadingNumbering removes visible numbering for true separator-free attr state", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = clearAllHeadingNumbering(source, { stateStorage: "attrs" });
+
+    assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});

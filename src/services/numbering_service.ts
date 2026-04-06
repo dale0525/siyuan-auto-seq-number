@@ -49,6 +49,10 @@ function buildPreviousNumberingAttrs(
     return previousAttrs;
 }
 
+function hasReadableStoredState(headings: HeadingBlock[]): boolean {
+    return headings.some((heading) => readNumberingState(heading.attrs));
+}
+
 export function createNumberingService(
     api: NumberingServiceApi,
     config: NumberingConfig
@@ -108,7 +112,8 @@ export function createNumberingService(
         buildPlan: (stateStorage: NumberingStateStorage) => NumberingPlanResult,
         options?: ApplyPlanFallbackOptions
     ): Promise<Record<string, string>> {
-        const initialStorage = api.supportsAttributeNumberingState()
+        const initialStorage =
+            hasReadableStoredState(headings) || api.supportsAttributeNumberingState()
             ? "attrs"
             : "marker";
         const initialPlan = buildPlan(initialStorage);

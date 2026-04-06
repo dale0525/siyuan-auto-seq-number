@@ -567,3 +567,38 @@ test("updateAttrs marks attribute numbering state unsupported when endpoint fail
 
     assert.equal(api.supportsAttributeNumberingState(), false);
 });
+
+test("getDocHeadingBlocks keeps reading ial attrs after attr writes become unsupported", async () => {
+    const fake = createFakeFetch();
+    const api = createSiyuanApi(async (input, init) => {
+        const url = String(input);
+        if (url === "/api/attr/setBlockAttrs") {
+            return new Response(
+                JSON.stringify({
+                    code: -1,
+                    msg: "attrs unsupported",
+                    data: null,
+                }),
+                { status: 200 }
+            );
+        }
+
+        return fake.fetch(input, init);
+    });
+
+    await assert.rejects(
+        () =>
+            api.updateAttrs({
+                a: {
+                    "custom-auto-seq-number": "1. ",
+                    "custom-auto-seq-number-backup-prefix": "",
+                },
+            }),
+        /unsupported/
+    );
+
+    const blocks = await api.getDocHeadingBlocks("doc-id");
+
+    assert.equal(api.supportsAttributeNumberingState(), false);
+    assert.equal(blocks[0].attrs?.["custom-auto-seq-number"], "1. ");
+});
