@@ -50,6 +50,23 @@ function buildPreviousNumberingAttrs(
     return previousAttrs;
 }
 
+function buildPreviousMarkdownUpdates(
+    headings: HeadingBlock[],
+    nextUpdates: Record<string, string>
+): Record<string, string> {
+    const headingById = new Map(headings.map((heading) => [heading.id, heading]));
+    const previousUpdates: Record<string, string> = {};
+
+    for (const id of Object.keys(nextUpdates)) {
+        const previousMarkdown = headingById.get(id)?.markdown;
+        if (typeof previousMarkdown === "string") {
+            previousUpdates[id] = previousMarkdown;
+        }
+    }
+
+    return previousUpdates;
+}
+
 function hasReadableStoredState(headings: HeadingBlock[]): boolean {
     return headings.some((heading) => readNumberingState(heading.attrs));
 }
@@ -82,6 +99,14 @@ export function createNumberingService(
         }
     }
 
+    async function rollbackBlocks(updates: Record<string, string>): Promise<void> {
+        try {
+            await api.updateBlocks(updates, "markdown");
+        } catch {
+            // Best-effort rollback to reduce mismatched attrs/content state.
+        }
+    }
+
     async function applyNumberingPlan(
         headings: HeadingBlock[],
         result: NumberingPlanResult,
@@ -99,24 +124,26 @@ export function createNumberingService(
             return result.updates;
         }
 
+        const previousUpdates = buildPreviousMarkdownUpdates(headings, result.updates);
         const previousAttrs = buildPreviousNumberingAttrs(headings, result.attrs);
+
+        try {
+            await api.updateBlocks(result.updates, "markdown");
+        } catch (error) {
+            await rollbackBlocks(previousUpdates);
+            throw error;
+        }
 
         if (Object.keys(result.attrs).length > 0) {
             try {
                 await api.updateAttrs(result.attrs);
             } catch (error) {
                 if (api.supportsAttributeNumberingState()) {
+                    await rollbackBlocks(previousUpdates);
                     await rollbackAttrs(previousAttrs);
                 }
                 throw error;
             }
-        }
-
-        try {
-            await api.updateBlocks(result.updates, "markdown");
-        } catch (error) {
-            await rollbackAttrs(previousAttrs);
-            throw error;
         }
 
         return result.updates;
@@ -138,9 +165,11 @@ export function createNumberingService(
             return await applyNumberingPlan(headings, initialPlan, initialStorage);
         } catch (error) {
             if (initialStorage === "attrs" && !api.supportsAttributeNumberingState()) {
-                const fallbackPlan =
-                    options?.unsupportedAttrFallback?.(initialPlan) ||
-                    buildPlan("marker");
+                if (options?.unsupportedAttrFallback) {
+                    return options.unsupportedAttrFallback(initialPlan).updates;
+                }
+
+                const fallbackPlan = buildPlan("marker");
                 return applyNumberingPlan(headings, fallbackPlan, "marker");
             }
 
@@ -188,8 +217,17 @@ export function createNumberingService(
     async function clearAllNumbering(docId: string): Promise<Record<string, string>> {
         await api.flushTransactions();
         const headings = await api.getDocHeadingBlocks(docId);
-        return applyPlanWithFallback(headings, (stateStorage) =>
-            clearAllHeadingNumbering(headings, { stateStorage })
+        return applyPlanWithFallback(
+            headings,
+            (stateStorage) => clearAllHeadingNumbering(headings, { stateStorage }),
+            {
+                unsupportedAttrFallback(initialPlan) {
+                    return {
+                        updates: initialPlan.updates,
+                        attrs: {},
+                    };
+                },
+            }
         );
     }
 

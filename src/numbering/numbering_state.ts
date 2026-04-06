@@ -8,6 +8,10 @@ export interface NumberingState {
     contentDigest: string;
 }
 
+export function normalizeStoredNumber(value: unknown): string {
+    return typeof value === "string" ? value.trimEnd() : "";
+}
+
 export function normalizeStoredValue(value: unknown): string {
     return typeof value === "string" ? value : "";
 }
@@ -30,7 +34,7 @@ export function readNumberingState(
         return null;
     }
 
-    const number = normalizeStoredValue(attrs[AUTO_NUMBER_ATTR]);
+    const number = normalizeStoredNumber(attrs[AUTO_NUMBER_ATTR]);
     const backupPrefix = normalizeStoredValue(attrs[BACKUP_PREFIX_ATTR]);
     const contentDigest = normalizeStoredValue(attrs[CONTENT_DIGEST_ATTR]);
     if (!number && !backupPrefix && !contentDigest) {
@@ -56,7 +60,7 @@ export function buildNumberingStateAttrs(
     }
 
     return {
-        [AUTO_NUMBER_ATTR]: state.number,
+        [AUTO_NUMBER_ATTR]: normalizeStoredNumber(state.number),
         [BACKUP_PREFIX_ATTR]: state.backupPrefix,
         [CONTENT_DIGEST_ATTR]: state.contentDigest,
     };

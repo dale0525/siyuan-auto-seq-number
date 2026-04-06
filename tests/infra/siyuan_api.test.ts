@@ -240,6 +240,68 @@ function createFakeFetchWithBatchFailure(version = "3.1.25") {
     };
 }
 
+function createFakeFetchForMarkdownBridge() {
+    const calls: IFetchCall[] = [];
+
+    const fakeFetch: typeof fetch = (async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+    ) => {
+        const url = String(input);
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        calls.push({ url, body });
+
+        if (url === "/api/block/updateBlock") {
+            const payload = body as {
+                id?: string;
+                dataType?: string;
+                data?: string;
+            };
+            if (payload.dataType === "markdown") {
+                return new Response(
+                    JSON.stringify({
+                        code: 0,
+                        msg: "",
+                        data: [
+                            {
+                                doOperations: [
+                                    {
+                                        data: `<div data-node-id="${payload.id}">rendered:${payload.data}</div>`,
+                                    },
+                                ],
+                            },
+                        ],
+                    }),
+                    { status: 200 }
+                );
+            }
+
+            return new Response(
+                JSON.stringify({
+                    code: 0,
+                    msg: "",
+                    data: null,
+                }),
+                { status: 200 }
+            );
+        }
+
+        return new Response(
+            JSON.stringify({
+                code: 0,
+                msg: "",
+                data: null,
+            }),
+            { status: 200 }
+        );
+    }) as typeof fetch;
+
+    return {
+        calls,
+        fetch: fakeFetch,
+    };
+}
+
 function createFakeFetchWithAttrBatchRace() {
     const calls: IFetchCall[] = [];
     let resolvedA = false;
@@ -381,7 +443,7 @@ function createFakeFetchWithoutHeadingAttrs() {
     };
 }
 
-test("updateBlocks always uses batchUpdateBlock even when version < 3.1.25", async () => {
+test("updateBlocks uses batchUpdateBlock for dom updates even when version < 3.1.25", async () => {
     const fake = createFakeFetch("3.1.24");
     const api = createSiyuanApi(fake.fetch);
 
@@ -390,7 +452,7 @@ test("updateBlocks always uses batchUpdateBlock even when version < 3.1.25", asy
             a: "# A",
             b: "## B",
         },
-        "markdown"
+        "dom"
     );
 
     const calledUpdate = fake.calls.filter((call) => call.url === "/api/block/updateBlock");
@@ -401,7 +463,7 @@ test("updateBlocks always uses batchUpdateBlock even when version < 3.1.25", asy
     assert.equal(calledBatch.length, 1);
 });
 
-test("updateBlocks uses batchUpdateBlock when version >= 3.1.25", async () => {
+test("updateBlocks uses batchUpdateBlock for dom updates when version >= 3.1.25", async () => {
     const fake = createFakeFetch("3.1.25");
     const api = createSiyuanApi(fake.fetch);
 
@@ -410,7 +472,7 @@ test("updateBlocks uses batchUpdateBlock when version >= 3.1.25", async () => {
             a: "# A",
             b: "## B",
         },
-        "markdown"
+        "dom"
     );
 
     const calledUpdate = fake.calls.filter((call) => call.url === "/api/block/updateBlock");
@@ -419,6 +481,31 @@ test("updateBlocks uses batchUpdateBlock when version >= 3.1.25", async () => {
     );
     assert.equal(calledUpdate.length, 0);
     assert.equal(calledBatch.length, 1);
+});
+
+test("updateBlocks bridges markdown updates through rendered DOM operations", async () => {
+    const fake = createFakeFetchForMarkdownBridge();
+    const api = createSiyuanApi(fake.fetch);
+
+    await api.updateBlocks(
+        {
+            a: "# 1. Title A",
+        },
+        "markdown"
+    );
+
+    const updateCalls = fake.calls.filter((call) => call.url === "/api/block/updateBlock");
+    assert.equal(updateCalls.length, 2);
+    assert.deepEqual(updateCalls[0].body, {
+        id: "a",
+        dataType: "markdown",
+        data: "# 1. Title A",
+    });
+    assert.deepEqual(updateCalls[1].body, {
+        id: "a",
+        dataType: "dom",
+        data: '<div data-node-id="a">rendered:# 1. Title A</div>',
+    });
 });
 
 test("flushTransactions calls /api/sqlite/flushTransaction", async () => {
@@ -432,7 +519,7 @@ test("flushTransactions calls /api/sqlite/flushTransaction", async () => {
     assert.equal(called, true);
 });
 
-test("updateBlocks throws when batchUpdateBlock returns error", async () => {
+test("updateBlocks throws when dom batchUpdateBlock returns error", async () => {
     const fake = createFakeFetchWithBatchFailure("3.1.25");
     const api = createSiyuanApi(fake.fetch);
 
@@ -443,7 +530,7 @@ test("updateBlocks throws when batchUpdateBlock returns error", async () => {
                     a: "# A",
                     b: "## B",
                 },
-                "markdown"
+                "dom"
             ),
         /batchUpdateBlock/
     );

@@ -65,7 +65,7 @@ test("update flow: flush -> load headings -> compute -> update blocks", async ()
 
     await service.updateDocument("doc-1");
 
-    assert.deepEqual(fake.callOrder, ["flush", "load", "attrs:2", "update:2"]);
+    assert.deepEqual(fake.callOrder, ["flush", "load", "update:2", "attrs:2"]);
 });
 
 test("clear flow keeps call order and clears only marker-based numbering", async () => {
@@ -146,7 +146,7 @@ test("update flow stores numbering state in block attrs and removes legacy marke
     });
     assert.deepEqual(recordedAttrs, {
         a: {
-            [AUTO_NUMBER_ATTR]: "1. ",
+            [AUTO_NUMBER_ATTR]: "1.",
             [BACKUP_PREFIX_ATTR]: "",
             [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
         },
@@ -239,16 +239,25 @@ test("update flow clears attrs when attr write fails after partial success", asy
 
     await assert.rejects(() => service.updateDocument("doc-1"), /set attrs failed/);
 
-    assert.equal(blockCalls.length, 0);
+    assert.deepEqual(blockCalls, [
+        {
+            a: "# 1. Title A",
+            b: "# 2. Title B",
+        },
+        {
+            a: "# Title A",
+            b: "# Title B",
+        },
+    ]);
     assert.deepEqual(attrCalls, [
         {
             a: {
-                [AUTO_NUMBER_ATTR]: "1. ",
+                [AUTO_NUMBER_ATTR]: "1.",
                 [BACKUP_PREFIX_ATTR]: "",
                 [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
             },
             b: {
-                [AUTO_NUMBER_ATTR]: "2. ",
+                [AUTO_NUMBER_ATTR]: "2.",
                 [BACKUP_PREFIX_ATTR]: "",
                 [CONTENT_DIGEST_ATTR]: computeContentDigest("Title B"),
             },
@@ -310,22 +319,7 @@ test("update flow restores previous attrs when block write fails", async () => {
         /update block failed/
     );
 
-    assert.deepEqual(attrCalls, [
-        {
-            a: {
-                [AUTO_NUMBER_ATTR]: "1. ",
-                [BACKUP_PREFIX_ATTR]: "",
-                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
-            },
-        },
-        {
-            a: {
-                [AUTO_NUMBER_ATTR]: "3. ",
-                [BACKUP_PREFIX_ATTR]: "",
-                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
-            },
-        },
-    ]);
+    assert.deepEqual(attrCalls, []);
 });
 
 test("update flow skips attr and block writes when document is already up to date", async () => {
@@ -615,4 +609,56 @@ test("update flow migrates readable attr state to markers when attr writes are u
     assert.equal(markdownA, "# Old");
     assert.equal(markdownB, "# New");
     assert.equal(blockCalls.length, 2);
+});
+
+test("update flow reapplies attrs after block updates replace block state", async () => {
+    let currentHeading = {
+        id: "a",
+        subtype: "h1",
+        markdown: "# Title A",
+        attrs: {},
+    };
+    const callOrder: string[] = [];
+
+    const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return true;
+        },
+        async getVersion() {
+            return "3.6.1";
+        },
+        async flushTransactions() {
+            return undefined;
+        },
+        async getDocHeadingBlocks() {
+            return [currentHeading];
+        },
+        async updateBlocks(updates) {
+            callOrder.push(`update:${Object.keys(updates).length}`);
+            currentHeading = {
+                ...currentHeading,
+                markdown: updates.a ?? currentHeading.markdown,
+                attrs: {},
+            };
+        },
+        async updateAttrs(attrs) {
+            callOrder.push(`attrs:${Object.keys(attrs).length}`);
+            currentHeading = {
+                ...currentHeading,
+                attrs: {
+                    ...attrs.a,
+                },
+            };
+        },
+    };
+
+    const service = createNumberingService(api, CONFIG);
+    await service.updateDocument("doc-1");
+
+    assert.deepEqual(callOrder, ["update:1", "attrs:1"]);
+    assert.deepEqual(currentHeading.attrs, {
+        [AUTO_NUMBER_ATTR]: "1.",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
+    });
 });

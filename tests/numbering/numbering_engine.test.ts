@@ -387,7 +387,7 @@ test("planHeadingUpdates does not strip user content when stale attrs keep a non
 
     assert.equal(result.updates.a, "# 1. Chapter 9 News");
     assert.deepEqual(result.attrs.a, {
-        [AUTO_NUMBER_ATTR]: "1. ",
+        [AUTO_NUMBER_ATTR]: "1.",
         [BACKUP_PREFIX_ATTR]: "",
         [CONTENT_DIGEST_ATTR]: computeContentDigest("Chapter 9 News"),
     });
@@ -417,7 +417,7 @@ test("planHeadingUpdates replaces stale visible numbering when heading order cha
     assert.equal(result.updates.a, "## 1. Intro");
     assert.equal(result.updates.b, "## 2. Custom Title");
     assert.deepEqual(result.attrs.b, {
-        [AUTO_NUMBER_ATTR]: "2. ",
+        [AUTO_NUMBER_ATTR]: "2.",
         [BACKUP_PREFIX_ATTR]: "",
         [CONTENT_DIGEST_ATTR]: computeContentDigest("Custom Title"),
     });
@@ -441,6 +441,50 @@ test("planHeadingUpdates skips unchanged headings and attrs", () => {
 
     assert.deepEqual(result.updates, {});
     assert.deepEqual(result.attrs, {});
+});
+
+test("planHeadingUpdates stays stable when stored attrs lose trailing spaces", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1. Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1.",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.deepEqual(result.updates, {});
+    assert.deepEqual(result.attrs, {});
+});
+
+test("clearAutoNumbering removes visible numbering cleanly when stored attrs lose trailing spaces", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1. Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1.",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
 });
 
 test("clearAllHeadingNumbering removes visible numbering for true separator-free attr state", () => {

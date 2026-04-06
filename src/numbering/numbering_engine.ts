@@ -128,10 +128,21 @@ function extractStoredNumberPrefix(
         return "";
     }
 
+    const legacyPrefix = hasStableNumberAnchor(sample)
+        ? extractLegacyPrefix(text, sample)
+        : "";
+    if (legacyPrefix) {
+        return legacyPrefix;
+    }
+
     const pattern = buildNumberShapePattern(sample);
     if (pattern) {
         const match = pattern.exec(text);
-        return match?.[1] || "";
+        const matchedPrefix = match?.[1] || "";
+        if (matchedPrefix && hasStableNumberAnchor(sample)) {
+            return extractLegacyPrefix(text, matchedPrefix) || matchedPrefix;
+        }
+        return matchedPrefix;
     }
 
     return extractSeparatorFreeNumberPrefix(text, sample, contentDigest);
@@ -143,6 +154,17 @@ function extractExactVisibleNumberPrefix(text: string, sample: string): string {
     }
 
     return text.startsWith(sample) ? sample : "";
+}
+
+function expandVisibleExactPrefix(text: string, sample: string, prefix: string): string {
+    if (!prefix) {
+        return "";
+    }
+
+    const legacyPrefix = hasStableNumberAnchor(sample)
+        ? extractLegacyPrefix(text, sample)
+        : "";
+    return legacyPrefix || prefix;
 }
 
 function contentMatchesStoredDigest(
@@ -176,7 +198,12 @@ function restoreStoredContent(
 
     const exactStoredPrefix = extractExactVisibleNumberPrefix(content, storedState.number);
     if (exactStoredPrefix) {
-        const contentWithoutStoredPrefix = content.substring(exactStoredPrefix.length);
+        const visibleStoredPrefix = expandVisibleExactPrefix(
+            content,
+            storedState.number,
+            exactStoredPrefix
+        );
+        const contentWithoutStoredPrefix = content.substring(visibleStoredPrefix.length);
         const digestMatches = contentMatchesStoredDigest(
             contentWithoutStoredPrefix,
             storedState.contentDigest
@@ -479,15 +506,20 @@ function clearVisibleNumberingFromAttrs(
         parts.content,
         storedState.number
     );
-    const exactContent = exactStoredPrefix
-        ? parts.content.substring(exactStoredPrefix.length)
+    const visibleExactPrefix = expandVisibleExactPrefix(
+        parts.content,
+        storedState.number,
+        exactStoredPrefix
+    );
+    const exactContent = visibleExactPrefix
+        ? parts.content.substring(visibleExactPrefix.length)
         : "";
-    const exactDigestMatches = exactStoredPrefix
+    const exactDigestMatches = visibleExactPrefix
         ? contentMatchesStoredDigest(exactContent, storedState.contentDigest)
         : false;
-    const trustedExactPrefix = exactStoredPrefix &&
+    const trustedExactPrefix = visibleExactPrefix &&
         canTrustExactStoredPrefix(storedState.number, exactDigestMatches)
-        ? exactStoredPrefix
+        ? visibleExactPrefix
         : "";
     const matchedPrefix = trustedExactPrefix || visiblePrefix;
     if (!matchedPrefix) {
