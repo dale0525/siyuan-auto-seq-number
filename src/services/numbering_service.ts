@@ -32,6 +32,7 @@ interface ApplyPlanFallbackOptions {
     unsupportedAttrFallback?: (
         initialPlan: NumberingPlanResult
     ) => NumberingPlanResult;
+    initialStorageMode?: "prefer-readable-attrs" | "require-attr-write";
 }
 
 function buildPreviousNumberingAttrs(
@@ -51,6 +52,20 @@ function buildPreviousNumberingAttrs(
 
 function hasReadableStoredState(headings: HeadingBlock[]): boolean {
     return headings.some((heading) => readNumberingState(heading.attrs));
+}
+
+function resolveInitialStorage(
+    headings: HeadingBlock[],
+    api: NumberingServiceApi,
+    mode: "prefer-readable-attrs" | "require-attr-write"
+): NumberingStateStorage {
+    if (mode === "require-attr-write") {
+        return api.supportsAttributeNumberingState() ? "attrs" : "marker";
+    }
+
+    return hasReadableStoredState(headings) || api.supportsAttributeNumberingState()
+        ? "attrs"
+        : "marker";
 }
 
 export function createNumberingService(
@@ -112,10 +127,11 @@ export function createNumberingService(
         buildPlan: (stateStorage: NumberingStateStorage) => NumberingPlanResult,
         options?: ApplyPlanFallbackOptions
     ): Promise<Record<string, string>> {
-        const initialStorage =
-            hasReadableStoredState(headings) || api.supportsAttributeNumberingState()
-            ? "attrs"
-            : "marker";
+        const initialStorage = resolveInitialStorage(
+            headings,
+            api,
+            options?.initialStorageMode || "prefer-readable-attrs"
+        );
         const initialPlan = buildPlan(initialStorage);
 
         try {
@@ -135,8 +151,12 @@ export function createNumberingService(
     async function updateDocument(docId: string): Promise<Record<string, string>> {
         await api.flushTransactions();
         const headings = await api.getDocHeadingBlocks(docId);
-        return applyPlanWithFallback(headings, (stateStorage) =>
-            planHeadingUpdates(headings, config, { stateStorage })
+        return applyPlanWithFallback(
+            headings,
+            (stateStorage) => planHeadingUpdates(headings, config, { stateStorage }),
+            {
+                initialStorageMode: "require-attr-write",
+            }
         );
     }
 

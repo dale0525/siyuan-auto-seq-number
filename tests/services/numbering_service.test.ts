@@ -557,3 +557,62 @@ test("clear flow still removes visible numbering on later runs after attr writes
     });
     assert.deepEqual(blockCalls, [{ a: "# Title A" }, { a: "# Title A" }]);
 });
+
+test("update flow migrates readable attr state to markers when attr writes are unavailable", async () => {
+    let markdownA = "# 1. Old";
+    let markdownB = "# New";
+    const blockCalls: Array<Record<string, string>> = [];
+
+    const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return false;
+        },
+        async getVersion() {
+            return "3.1.25";
+        },
+        async flushTransactions() {
+            return undefined;
+        },
+        async getDocHeadingBlocks() {
+            return [
+                {
+                    id: "a",
+                    subtype: "h1",
+                    markdown: markdownA,
+                    attrs: {
+                        [AUTO_NUMBER_ATTR]: "1. ",
+                        [BACKUP_PREFIX_ATTR]: "",
+                        [CONTENT_DIGEST_ATTR]: computeContentDigest("Old"),
+                    },
+                },
+                {
+                    id: "b",
+                    subtype: "h1",
+                    markdown: markdownB,
+                    attrs: {},
+                },
+            ];
+        },
+        async updateBlocks(updates) {
+            blockCalls.push(updates);
+            markdownA = updates.a ?? markdownA;
+            markdownB = updates.b ?? markdownB;
+        },
+        async updateAttrs() {
+            return undefined;
+        },
+    };
+
+    const service = createNumberingService(api, CONFIG);
+
+    await service.updateDocument("doc-1");
+    const cleared = await service.clearDocument("doc-1", { preservePrefix: false });
+
+    assert.deepEqual(cleared, {
+        a: "# Old",
+        b: "# New",
+    });
+    assert.equal(markdownA, "# Old");
+    assert.equal(markdownB, "# New");
+    assert.equal(blockCalls.length, 2);
+});
