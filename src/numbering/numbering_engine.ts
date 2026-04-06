@@ -141,9 +141,15 @@ function restoreStoredContent(
     content: string,
     storedState: NumberingState | null,
     generatedNumber: string
-): string {
+): {
+    content: string;
+    restoredFromState: boolean;
+} {
     if (!storedState) {
-        return content;
+        return {
+            content,
+            restoredFromState: false,
+        };
     }
 
     const storedPrefix = extractStoredNumberPrefix(
@@ -157,7 +163,10 @@ function restoreStoredContent(
             computeContentDigest(content.substring(storedPrefix.length)) ===
                 storedState.contentDigest)
     ) {
-        return `${storedState.backupPrefix}${content.substring(storedPrefix.length)}`;
+        return {
+            content: `${storedState.backupPrefix}${content.substring(storedPrefix.length)}`,
+            restoredFromState: true,
+        };
     }
 
     const generatedPrefix = extractStoredNumberPrefix(
@@ -171,10 +180,16 @@ function restoreStoredContent(
             computeContentDigest(content.substring(generatedPrefix.length)) ===
                 storedState.contentDigest)
     ) {
-        return `${storedState.backupPrefix}${content.substring(generatedPrefix.length)}`;
+        return {
+            content: `${storedState.backupPrefix}${content.substring(generatedPrefix.length)}`,
+            restoredFromState: true,
+        };
     }
 
-    return content;
+    return {
+        content,
+        restoredFromState: false,
+    };
 }
 
 function parseHeadingLevel(subtype: string): number {
@@ -385,12 +400,15 @@ export function planHeadingUpdates(
 
         const markerInfo = readMarker(parts.content);
         const storedState = resolveStoredState(heading);
+        const restoredState = markerInfo
+            ? null
+            : restoreStoredContent(parts.content, storedState, number);
         const restoredContent = markerInfo
             ? `${markerInfo.backupPrefix}${markerInfo.content}`
-            : restoreStoredContent(parts.content, storedState, number);
+            : restoredState.content;
         const backupPrefix =
             markerInfo?.backupPrefix ||
-            storedState?.backupPrefix ||
+            (restoredState?.restoredFromState ? storedState?.backupPrefix || "" : "") ||
             extractLegacyPrefix(restoredContent, number);
         const contentWithoutPrefix =
             backupPrefix && restoredContent.startsWith(backupPrefix)

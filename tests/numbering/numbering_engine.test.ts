@@ -341,6 +341,30 @@ test("planHeadingUpdates does not strip visible numeric title content when attrs
     assert.equal(result.updates.a, "# 1. 3. Version notes");
 });
 
+test("planHeadingUpdates does not strip user content when stale attrs keep a non-empty backup prefix", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# Chapter 9 News",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7. ",
+                [BACKUP_PREFIX_ATTR]: "Chapter 9 ",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.a, "# 1. Chapter 9 News");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "1. ",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: computeContentDigest("Chapter 9 News"),
+    });
+});
+
 test("planHeadingUpdates skips unchanged headings and attrs", () => {
     const source: HeadingBlock[] = [
         {
