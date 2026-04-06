@@ -322,6 +322,25 @@ test("clearAutoNumbering does not strip user content when attrs are stale and co
     });
 });
 
+test("planHeadingUpdates does not strip visible numeric title content when attrs are stale and content digest mismatches", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 3. Version notes",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.a, "# 1. 3. Version notes");
+});
+
 test("planHeadingUpdates skips unchanged headings and attrs", () => {
     const source: HeadingBlock[] = [
         {

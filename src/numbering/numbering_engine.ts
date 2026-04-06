@@ -151,7 +151,12 @@ function restoreStoredContent(
         storedState.number,
         storedState.contentDigest
     );
-    if (storedPrefix) {
+    if (
+        storedPrefix &&
+        (!storedState.contentDigest ||
+            computeContentDigest(content.substring(storedPrefix.length)) ===
+                storedState.contentDigest)
+    ) {
         return `${storedState.backupPrefix}${content.substring(storedPrefix.length)}`;
     }
 
@@ -160,7 +165,12 @@ function restoreStoredContent(
         generatedNumber,
         storedState.contentDigest
     );
-    if (generatedPrefix) {
+    if (
+        generatedPrefix &&
+        (!storedState.contentDigest ||
+            computeContentDigest(content.substring(generatedPrefix.length)) ===
+                storedState.contentDigest)
+    ) {
         return `${storedState.backupPrefix}${content.substring(generatedPrefix.length)}`;
     }
 
