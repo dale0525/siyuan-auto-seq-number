@@ -568,6 +568,43 @@ test("updateAttrs marks attribute numbering state unsupported when endpoint fail
     assert.equal(api.supportsAttributeNumberingState(), false);
 });
 
+test("updateAttrs keeps attribute numbering state enabled for generic endpoint errors", async () => {
+    const api = createSiyuanApi(async (input) => {
+        if (String(input) === "/api/attr/setBlockAttrs") {
+            return new Response(
+                JSON.stringify({
+                    code: -1,
+                    msg: "unknown error",
+                    data: null,
+                }),
+                { status: 200 }
+            );
+        }
+
+        return new Response(
+            JSON.stringify({
+                code: 0,
+                msg: "",
+                data: [],
+            }),
+            { status: 200 }
+        );
+    });
+
+    await assert.rejects(
+        () =>
+            api.updateAttrs({
+                a: {
+                    "custom-auto-seq-number": "1. ",
+                    "custom-auto-seq-number-backup-prefix": "",
+                },
+            }),
+        /unknown error/
+    );
+
+    assert.equal(api.supportsAttributeNumberingState(), true);
+});
+
 test("getDocHeadingBlocks keeps reading ial attrs after attr writes become unsupported", async () => {
     const fake = createFakeFetch();
     const api = createSiyuanApi(async (input, init) => {

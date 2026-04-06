@@ -152,6 +152,13 @@ function contentMatchesStoredDigest(
     return !contentDigest || computeContentDigest(content) === contentDigest;
 }
 
+function canTrustExactStoredPrefix(
+    sample: string,
+    digestMatches: boolean
+): boolean {
+    return digestMatches || hasStableNumberAnchor(sample);
+}
+
 function restoreStoredContent(
     content: string,
     storedState: NumberingState | null,
@@ -174,13 +181,14 @@ function restoreStoredContent(
             contentWithoutStoredPrefix,
             storedState.contentDigest
         );
-
-        return {
-            content: digestMatches
-                ? `${storedState.backupPrefix}${contentWithoutStoredPrefix}`
-                : contentWithoutStoredPrefix,
-            restoredFromState: digestMatches,
-        };
+        if (canTrustExactStoredPrefix(storedState.number, digestMatches)) {
+            return {
+                content: digestMatches
+                    ? `${storedState.backupPrefix}${contentWithoutStoredPrefix}`
+                    : contentWithoutStoredPrefix,
+                restoredFromState: digestMatches,
+            };
+        }
     }
 
     const generatedPrefix = extractStoredNumberPrefix(
@@ -471,13 +479,26 @@ function clearVisibleNumberingFromAttrs(
         parts.content,
         storedState.number
     );
-    const matchedPrefix = exactStoredPrefix || visiblePrefix;
+    const exactContent = exactStoredPrefix
+        ? parts.content.substring(exactStoredPrefix.length)
+        : "";
+    const exactDigestMatches = exactStoredPrefix
+        ? contentMatchesStoredDigest(exactContent, storedState.contentDigest)
+        : false;
+    const trustedExactPrefix = exactStoredPrefix &&
+        canTrustExactStoredPrefix(storedState.number, exactDigestMatches)
+        ? exactStoredPrefix
+        : "";
+    const matchedPrefix = trustedExactPrefix || visiblePrefix;
     if (!matchedPrefix) {
         return heading.markdown;
     }
 
     const content = parts.content.substring(matchedPrefix.length);
-    const digestMatches = contentMatchesStoredDigest(content, storedState.contentDigest);
+    const digestMatches =
+        matchedPrefix === trustedExactPrefix
+            ? exactDigestMatches
+            : contentMatchesStoredDigest(content, storedState.contentDigest);
     const canRestorePrefix = options.preservePrefix && digestMatches;
     if (!visiblePrefix) {
         return `${parts.prefix}${canRestorePrefix ? `${storedState.backupPrefix}${content}` : content}`;

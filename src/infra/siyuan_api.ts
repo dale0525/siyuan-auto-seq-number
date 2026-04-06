@@ -124,7 +124,9 @@ function isAttrEndpointUnsupported(error: unknown): boolean {
         error instanceof SiyuanApiRequestError &&
         error.path === "/api/attr/setBlockAttrs" &&
         (error.status === 404 ||
-            /unsupported|not found|unknown|unrecognized/i.test(error.apiMessage))
+            /unsupported|not found|unrecognized|no such (api|endpoint|route)/i.test(
+                error.apiMessage
+            ))
     );
 }
 

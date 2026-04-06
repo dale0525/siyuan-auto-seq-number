@@ -298,6 +298,34 @@ test("planHeadingUpdates keeps user numeric content for true separator-free form
     assert.equal(result.updates.a, "# 13things");
 });
 
+test("planHeadingUpdates keeps exact leading numeric content for true separator-free formats when digest is stale", () => {
+    const config: NumberingConfig = {
+        formats: ["{1}", "{1}{2}", "{1}{2}{3}", "{1}{2}{3}{4}", "{1}{2}{3}{4}{5}", "{1}{2}{3}{4}{5}{6}"],
+        useChineseNumbers: [false, false, false, false, false, false],
+    };
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# Intro",
+        },
+        {
+            id: "b",
+            subtype: "h1",
+            markdown: "# 1st steps",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, config);
+
+    assert.equal(result.updates.b, "# 21st steps");
+});
+
 test("clearAutoNumbering removes visible numbering when stored number still matches but digest is stale", () => {
     const source: HeadingBlock[] = [
         {
@@ -456,6 +484,30 @@ test("clearAutoNumbering removes visible numbering after title edits even when d
     const result = clearAutoNumbering(source, { preservePrefix: false });
 
     assert.equal(result.updates.a, "# Custom Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("clearAutoNumbering preserves exact leading numeric content for true separator-free formats when digest is stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1st steps",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, undefined);
     assert.deepEqual(result.attrs.a, {
         [AUTO_NUMBER_ATTR]: "",
         [BACKUP_PREFIX_ATTR]: "",
