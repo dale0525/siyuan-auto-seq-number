@@ -298,7 +298,7 @@ test("planHeadingUpdates keeps user numeric content for true separator-free form
     assert.equal(result.updates.a, "# 13things");
 });
 
-test("clearAutoNumbering does not strip user content when attrs are stale and content digest mismatches", () => {
+test("clearAutoNumbering removes visible numbering when stored number still matches but digest is stale", () => {
     const source: HeadingBlock[] = [
         {
             id: "a",
@@ -314,7 +314,7 @@ test("clearAutoNumbering does not strip user content when attrs are stale and co
 
     const result = clearAutoNumbering(source, { preservePrefix: false });
 
-    assert.equal(result.updates.a, undefined);
+    assert.equal(result.updates.a, "# Version notes");
     assert.deepEqual(result.attrs.a, {
         [AUTO_NUMBER_ATTR]: "",
         [BACKUP_PREFIX_ATTR]: "",
@@ -365,6 +365,36 @@ test("planHeadingUpdates does not strip user content when stale attrs keep a non
     });
 });
 
+test("planHeadingUpdates replaces stale visible numbering when heading order changes after title edits", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h2",
+            markdown: "## Intro",
+        },
+        {
+            id: "b",
+            subtype: "h2",
+            markdown: "## 1. Custom Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.a, "## 1. Intro");
+    assert.equal(result.updates.b, "## 2. Custom Title");
+    assert.deepEqual(result.attrs.b, {
+        [AUTO_NUMBER_ATTR]: "2. ",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: computeContentDigest("Custom Title"),
+    });
+});
+
 test("planHeadingUpdates skips unchanged headings and attrs", () => {
     const source: HeadingBlock[] = [
         {
@@ -402,6 +432,30 @@ test("clearAllHeadingNumbering removes visible numbering for true separator-free
     const result = clearAllHeadingNumbering(source, { stateStorage: "attrs" });
 
     assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("clearAutoNumbering removes visible numbering after title edits even when digest is stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1. Custom Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, "# Custom Title");
     assert.deepEqual(result.attrs.a, {
         [AUTO_NUMBER_ATTR]: "",
         [BACKUP_PREFIX_ATTR]: "",

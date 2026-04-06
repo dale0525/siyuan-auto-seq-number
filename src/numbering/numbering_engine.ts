@@ -137,6 +137,21 @@ function extractStoredNumberPrefix(
     return extractSeparatorFreeNumberPrefix(text, sample, contentDigest);
 }
 
+function extractExactVisibleNumberPrefix(text: string, sample: string): string {
+    if (!text || !sample) {
+        return "";
+    }
+
+    return text.startsWith(sample) ? sample : "";
+}
+
+function contentMatchesStoredDigest(
+    content: string,
+    contentDigest: string
+): boolean {
+    return !contentDigest || computeContentDigest(content) === contentDigest;
+}
+
 function restoreStoredContent(
     content: string,
     storedState: NumberingState | null,
@@ -152,20 +167,19 @@ function restoreStoredContent(
         };
     }
 
-    const storedPrefix = extractStoredNumberPrefix(
-        content,
-        storedState.number,
-        storedState.contentDigest
-    );
-    if (
-        storedPrefix &&
-        (!storedState.contentDigest ||
-            computeContentDigest(content.substring(storedPrefix.length)) ===
-                storedState.contentDigest)
-    ) {
+    const exactStoredPrefix = extractExactVisibleNumberPrefix(content, storedState.number);
+    if (exactStoredPrefix) {
+        const contentWithoutStoredPrefix = content.substring(exactStoredPrefix.length);
+        const digestMatches = contentMatchesStoredDigest(
+            contentWithoutStoredPrefix,
+            storedState.contentDigest
+        );
+
         return {
-            content: `${storedState.backupPrefix}${content.substring(storedPrefix.length)}`,
-            restoredFromState: true,
+            content: digestMatches
+                ? `${storedState.backupPrefix}${contentWithoutStoredPrefix}`
+                : contentWithoutStoredPrefix,
+            restoredFromState: digestMatches,
         };
     }
 
@@ -176,9 +190,10 @@ function restoreStoredContent(
     );
     if (
         generatedPrefix &&
-        (!storedState.contentDigest ||
-            computeContentDigest(content.substring(generatedPrefix.length)) ===
-                storedState.contentDigest)
+        contentMatchesStoredDigest(
+            content.substring(generatedPrefix.length),
+            storedState.contentDigest
+        )
     ) {
         return {
             content: `${storedState.backupPrefix}${content.substring(generatedPrefix.length)}`,
@@ -452,19 +467,23 @@ function clearVisibleNumberingFromAttrs(
         storedState.number,
         storedState.contentDigest
     );
+    const exactStoredPrefix = extractExactVisibleNumberPrefix(
+        parts.content,
+        storedState.number
+    );
+    const matchedPrefix = exactStoredPrefix || visiblePrefix;
+    if (!matchedPrefix) {
+        return heading.markdown;
+    }
+
+    const content = parts.content.substring(matchedPrefix.length);
+    const digestMatches = contentMatchesStoredDigest(content, storedState.contentDigest);
+    const canRestorePrefix = options.preservePrefix && digestMatches;
     if (!visiblePrefix) {
-        return heading.markdown;
+        return `${parts.prefix}${canRestorePrefix ? `${storedState.backupPrefix}${content}` : content}`;
     }
 
-    const content = parts.content.substring(visiblePrefix.length);
-    if (
-        !storedState.contentDigest ||
-        computeContentDigest(content) !== storedState.contentDigest
-    ) {
-        return heading.markdown;
-    }
-
-    const mergedContent = options.preservePrefix
+    const mergedContent = canRestorePrefix
         ? `${storedState.backupPrefix}${content}`
         : content;
     return `${parts.prefix}${mergedContent}`;
