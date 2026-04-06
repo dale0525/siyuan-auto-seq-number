@@ -9,6 +9,10 @@ import {
     planHeadingUpdates,
 } from "../../src/numbering/numbering_engine";
 import { addMarker } from "../../src/numbering/marker_codec";
+import {
+    AUTO_NUMBER_ATTR,
+    BACKUP_PREFIX_ATTR,
+} from "../../src/numbering/numbering_state";
 
 const DEFAULT_CONFIG: NumberingConfig = {
     formats: [
@@ -107,4 +111,22 @@ test("clearAllHeadingNumbering removes marker-based and user-defined heading pre
     assert.equal(result.updates.e, "# 标题E");
     assert.equal(result.updates.f, "无井号标题F");
     assert.equal("d" in result.updates, false);
+});
+
+test("planHeadingUpdates replaces visible numbering even when stored attrs are stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 2. Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.a, "# 1. Title");
 });

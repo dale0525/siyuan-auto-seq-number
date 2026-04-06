@@ -19,6 +19,8 @@ interface IHeadingAttrsPayload {
     [key: string]: string;
 }
 
+const ATTR_UPDATE_CONCURRENCY = 8;
+
 export interface SiyuanApi {
     getVersion(): Promise<string>;
     flushTransactions(): Promise<void>;
@@ -101,11 +103,20 @@ async function updateAttrsBatch(
         return;
     }
 
-    for (const [id, blockAttrs] of entries) {
-        await requestApi<unknown>(fetchImpl, "/api/attr/setBlockAttrs", {
-            id,
-            attrs: blockAttrs as IHeadingAttrsPayload,
-        });
+    for (
+        let startIndex = 0;
+        startIndex < entries.length;
+        startIndex += ATTR_UPDATE_CONCURRENCY
+    ) {
+        const batch = entries.slice(startIndex, startIndex + ATTR_UPDATE_CONCURRENCY);
+        await Promise.all(
+            batch.map(([id, blockAttrs]) =>
+                requestApi<unknown>(fetchImpl, "/api/attr/setBlockAttrs", {
+                    id,
+                    attrs: blockAttrs as IHeadingAttrsPayload,
+                })
+            )
+        );
     }
 }
 

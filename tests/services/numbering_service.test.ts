@@ -60,7 +60,7 @@ test("update flow: flush -> load headings -> compute -> update blocks", async ()
 
     await service.updateDocument("doc-1");
 
-    assert.deepEqual(fake.callOrder, ["flush", "load", "update:2", "attrs:2"]);
+    assert.deepEqual(fake.callOrder, ["flush", "load", "attrs:2", "update:2"]);
 });
 
 test("clear flow keeps call order and clears only marker-based numbering", async () => {
@@ -69,7 +69,7 @@ test("clear flow keeps call order and clears only marker-based numbering", async
 
     await service.clearDocument("doc-1", { preservePrefix: false });
 
-    assert.deepEqual(fake.callOrder, ["flush", "load", "update:0", "attrs:0"]);
+    assert.deepEqual(fake.callOrder, ["flush", "load", "attrs:0", "update:0"]);
 });
 
 test("clear all flow removes user-defined heading numbering", async () => {
@@ -96,7 +96,7 @@ test("clear all flow removes user-defined heading numbering", async () => {
     const service = createNumberingService(api, CONFIG);
     await service.clearAllNumbering("doc-1");
 
-    assert.deepEqual(callOrder, ["flush", "load", "update:1", "attrs:0"]);
+    assert.deepEqual(callOrder, ["flush", "load", "attrs:0", "update:1"]);
 });
 
 test("update flow stores numbering state in block attrs and removes legacy markers", async () => {
@@ -107,7 +107,9 @@ test("update flow stores numbering state in block attrs and removes legacy marke
         async getVersion() {
             return "3.1.25";
         },
-        async flushTransactions() {},
+        async flushTransactions() {
+            return undefined;
+        },
         async getDocHeadingBlocks() {
             return [
                 {
@@ -147,7 +149,9 @@ test("clear flow removes stored attrs together with visible numbering", async ()
         async getVersion() {
             return "3.1.25";
         },
-        async flushTransactions() {},
+        async flushTransactions() {
+            return undefined;
+        },
         async getDocHeadingBlocks() {
             return [
                 {
@@ -181,4 +185,115 @@ test("clear flow removes stored attrs together with visible numbering", async ()
             [BACKUP_PREFIX_ATTR]: "",
         },
     });
+});
+
+test("update flow clears attrs when attr write fails after partial success", async () => {
+    const attrCalls: Array<Record<string, Record<string, string>>> = [];
+    const blockCalls: Array<Record<string, string>> = [];
+
+    const api: NumberingServiceApi = {
+        async getVersion() {
+            return "3.1.25";
+        },
+        async flushTransactions() {
+            return undefined;
+        },
+        async getDocHeadingBlocks() {
+            return [
+                { id: "a", subtype: "h1", markdown: "# Title A" },
+                { id: "b", subtype: "h1", markdown: "# Title B" },
+            ];
+        },
+        async updateBlocks(updates) {
+            blockCalls.push(updates);
+        },
+        async updateAttrs(attrs) {
+            attrCalls.push(attrs);
+            if (attrCalls.length === 1) {
+                throw new Error("set attrs failed");
+            }
+        },
+    };
+
+    const service = createNumberingService(api, CONFIG);
+
+    await assert.rejects(() => service.updateDocument("doc-1"), /set attrs failed/);
+
+    assert.equal(blockCalls.length, 0);
+    assert.deepEqual(attrCalls, [
+        {
+            a: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+            b: {
+                [AUTO_NUMBER_ATTR]: "2. ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+        {
+            a: {
+                [AUTO_NUMBER_ATTR]: "",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+            b: {
+                [AUTO_NUMBER_ATTR]: "",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+    ]);
+});
+
+test("update flow restores previous attrs when block write fails", async () => {
+    const attrCalls: Array<Record<string, Record<string, string>>> = [];
+
+    const api: NumberingServiceApi = {
+        async getVersion() {
+            return "3.1.25";
+        },
+        async flushTransactions() {
+            return undefined;
+        },
+        async getDocHeadingBlocks() {
+            return [
+                {
+                    id: "a",
+                    subtype: "h1",
+                    markdown: "# 3. Title A",
+                    attrs: {
+                        [AUTO_NUMBER_ATTR]: "3. ",
+                        [BACKUP_PREFIX_ATTR]: "",
+                    },
+                },
+            ];
+        },
+        async updateBlocks() {
+            throw new Error("update block failed");
+        },
+        async updateAttrs(attrs) {
+            attrCalls.push(attrs);
+        },
+    };
+
+    const service = createNumberingService(api, CONFIG);
+
+    await assert.rejects(
+        () => service.updateDocument("doc-1"),
+        /update block failed/
+    );
+
+    assert.deepEqual(attrCalls, [
+        {
+            a: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+        {
+            a: {
+                [AUTO_NUMBER_ATTR]: "3. ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+    ]);
 });

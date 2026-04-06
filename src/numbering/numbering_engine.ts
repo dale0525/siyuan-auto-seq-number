@@ -32,6 +32,26 @@ function resolveStoredState(block: HeadingBlock): NumberingState | null {
     return readNumberingState(block.attrs);
 }
 
+function restoreStoredContent(
+    content: string,
+    storedState: NumberingState | null
+): string {
+    if (!storedState) {
+        return content;
+    }
+
+    if (storedState.number && content.startsWith(storedState.number)) {
+        return `${storedState.backupPrefix}${content.substring(storedState.number.length)}`;
+    }
+
+    const strippedContent = stripHeadingNumberPrefix(content);
+    if (strippedContent !== content) {
+        return `${storedState.backupPrefix}${strippedContent}`;
+    }
+
+    return content;
+}
+
 function parseHeadingLevel(subtype: string): number {
     const matched = subtype.match(/^h([1-6])$/);
     if (!matched) {
@@ -208,9 +228,7 @@ export function planHeadingUpdates(
         const storedState = resolveStoredState(heading);
         const restoredContent = markerInfo
             ? `${markerInfo.backupPrefix}${markerInfo.content}`
-            : storedState && storedState.number && parts.content.startsWith(storedState.number)
-              ? `${storedState.backupPrefix}${parts.content.substring(storedState.number.length)}`
-              : parts.content;
+            : restoreStoredContent(parts.content, storedState);
         const backupPrefix =
             markerInfo?.backupPrefix ||
             storedState?.backupPrefix ||
