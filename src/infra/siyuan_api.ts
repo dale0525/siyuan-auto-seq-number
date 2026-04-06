@@ -12,6 +12,11 @@ interface ISqlHeadingRow {
     id: string;
     markdown: string;
     subtype: string;
+    ial?: string;
+}
+
+interface IHeadingAttrsPayload {
+    [key: string]: string;
 }
 
 export interface SiyuanApi {
@@ -22,6 +27,7 @@ export interface SiyuanApi {
         updates: Record<string, string>,
         dataType: BlockDataType
     ): Promise<void>;
+    updateAttrs(attrs: Record<string, Record<string, string>>): Promise<void>;
 }
 
 async function requestApi<T>(
@@ -52,6 +58,24 @@ function escapeSqlString(value: string): string {
     return value.replace(/'/g, "''");
 }
 
+function parseInlineAttrs(ial: string | undefined): Record<string, string> {
+    if (!ial || typeof ial !== "string") {
+        return {};
+    }
+
+    const attrs: Record<string, string> = {};
+    const attrMatches = ial.match(/\{:[^}]*\}/);
+    const content = attrMatches?.[0] || ial;
+    const regex = /([\w-]+)=\"([^\"]*)\"/g;
+    let match: RegExpExecArray | null = regex.exec(content);
+    while (match) {
+        attrs[match[1]] = match[2];
+        match = regex.exec(content);
+    }
+
+    return attrs;
+}
+
 async function updateBlocksBatch(
     fetchImpl: typeof fetch,
     updates: Record<string, string>,
@@ -66,6 +90,23 @@ async function updateBlocksBatch(
         dataType,
         data,
     });
+}
+
+async function updateAttrsBatch(
+    fetchImpl: typeof fetch,
+    attrs: Record<string, Record<string, string>>
+): Promise<void> {
+    const entries = Object.entries(attrs);
+    if (entries.length === 0) {
+        return;
+    }
+
+    for (const [id, blockAttrs] of entries) {
+        await requestApi<unknown>(fetchImpl, "/api/attr/setBlockAttrs", {
+            id,
+            attrs: blockAttrs as IHeadingAttrsPayload,
+        });
+    }
 }
 
 export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
@@ -89,7 +130,7 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
 
     async function getDocHeadingBlocks(docId: string): Promise<HeadingBlock[]> {
         const escapedDocId = escapeSqlString(docId);
-        const sql = `select id, markdown, subtype from blocks where root_id = '${escapedDocId}' and subtype in ('h1','h2','h3','h4','h5','h6') order by sort asc`;
+        const sql = `select id, markdown, subtype, ial from blocks where root_id = '${escapedDocId}' and subtype in ('h1','h2','h3','h4','h5','h6') order by sort asc`;
         const rows = await requestApi<ISqlHeadingRow[]>(fetchImpl, "/api/query/sql", {
             stmt: sql,
         });
@@ -100,6 +141,7 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
                 id: row.id,
                 markdown: row.markdown || "",
                 subtype: row.subtype || "",
+                attrs: parseInlineAttrs(row.ial),
             }));
     }
 
@@ -114,10 +156,17 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
         await updateBlocksBatch(fetchImpl, updates, dataType);
     }
 
+    async function updateAttrs(
+        attrs: Record<string, Record<string, string>>
+    ): Promise<void> {
+        await updateAttrsBatch(fetchImpl, attrs);
+    }
+
     return {
         getVersion,
         flushTransactions,
         getDocHeadingBlocks,
         updateBlocks,
+        updateAttrs,
     };
 }

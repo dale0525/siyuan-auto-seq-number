@@ -30,6 +30,7 @@ export function createNumberingService(
         const headings = await api.getDocHeadingBlocks(docId);
         const result = planHeadingUpdates(headings, config);
         await api.updateBlocks(result.updates, "markdown");
+        await api.updateAttrs(result.attrs);
         return result.updates;
     }
 
@@ -43,6 +44,7 @@ export function createNumberingService(
             preservePrefix: options.preservePrefix,
         });
         await api.updateBlocks(result.updates, "markdown");
+        await api.updateAttrs(result.attrs);
         return result.updates;
     }
 
@@ -51,6 +53,7 @@ export function createNumberingService(
         const headings = await api.getDocHeadingBlocks(docId);
         const result = clearAllHeadingNumbering(headings);
         await api.updateBlocks(result.updates, "markdown");
+        await api.updateAttrs(result.attrs);
         return result.updates;
     }
 

@@ -36,8 +36,13 @@ function createFakeFetch(version = "3.1.24") {
                     code: 0,
                     msg: "",
                     data: [
-                        { id: "a", markdown: "# A", subtype: "h1" },
-                        { id: "b", markdown: "## B", subtype: "h2" },
+                        {
+                            id: "a",
+                            markdown: "# A",
+                            subtype: "h1",
+                            ial: '{: custom-auto-seq-number="1. " custom-auto-seq-number-backup-prefix=""}',
+                        },
+                        { id: "b", markdown: "## B", subtype: "h2", ial: "" },
                     ],
                 }),
                 { status: 200 }
@@ -47,7 +52,8 @@ function createFakeFetch(version = "3.1.24") {
         if (
             url === "/api/block/updateBlock" ||
             url === "/api/block/batchUpdateBlock" ||
-            url === "/api/sqlite/flushTransaction"
+            url === "/api/sqlite/flushTransaction" ||
+            url === "/api/attr/setBlockAttrs"
         ) {
             return new Response(
                 JSON.stringify({
@@ -97,7 +103,7 @@ function createFakeFetchTypeSensitive(version = "3.1.25") {
             const hasTypeH = stmt.includes("type = 'h'");
             const hasSubtypeFilter = /subtype\s+in\s*\(/i.test(stmt);
             const data = !hasTypeH && hasSubtypeFilter
-                ? [{ id: "x", markdown: "# X", subtype: "h1" }]
+                ? [{ id: "x", markdown: "# X", subtype: "h1", ial: "" }]
                 : [];
 
             return new Response(
@@ -113,7 +119,8 @@ function createFakeFetchTypeSensitive(version = "3.1.25") {
         if (
             url === "/api/block/updateBlock" ||
             url === "/api/block/batchUpdateBlock" ||
-            url === "/api/sqlite/flushTransaction"
+            url === "/api/sqlite/flushTransaction" ||
+            url === "/api/attr/setBlockAttrs"
         ) {
             return new Response(
                 JSON.stringify({
@@ -317,6 +324,33 @@ test("getDocHeadingBlocks returns heading rows", async () => {
         blocks.map((block) => block.id),
         ["a", "b"]
     );
+    assert.equal(blocks[0].attrs?.["custom-auto-seq-number"], "1. ");
+});
+
+test("updateAttrs writes block attrs one block at a time", async () => {
+    const fake = createFakeFetch();
+    const api = createSiyuanApi(fake.fetch);
+
+    await api.updateAttrs({
+        a: {
+            "custom-auto-seq-number": "1. ",
+            "custom-auto-seq-number-backup-prefix": "",
+        },
+        b: {
+            "custom-auto-seq-number": "1.1 ",
+            "custom-auto-seq-number-backup-prefix": "",
+        },
+    });
+
+    const calls = fake.calls.filter((call) => call.url === "/api/attr/setBlockAttrs");
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[0].body, {
+        id: "a",
+        attrs: {
+            "custom-auto-seq-number": "1. ",
+            "custom-auto-seq-number-backup-prefix": "",
+        },
+    });
 });
 
 test("getDocHeadingBlocks uses subtype-based SQL filter for compatibility", async () => {

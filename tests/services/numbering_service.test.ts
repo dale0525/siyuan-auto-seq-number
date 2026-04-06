@@ -5,6 +5,11 @@ import {
     createNumberingService,
     NumberingServiceApi,
 } from "../../src/services/numbering_service";
+import { addMarker } from "../../src/numbering/marker_codec";
+import {
+    AUTO_NUMBER_ATTR,
+    BACKUP_PREFIX_ATTR,
+} from "../../src/numbering/numbering_state";
 
 const CONFIG = {
     formats: [
@@ -41,6 +46,9 @@ function createFakeApi(): {
         async updateBlocks(updates) {
             callOrder.push(`update:${Object.keys(updates).length}`);
         },
+        async updateAttrs(attrs) {
+            callOrder.push(`attrs:${Object.keys(attrs).length}`);
+        },
     };
 
     return { api, callOrder };
@@ -52,7 +60,7 @@ test("update flow: flush -> load headings -> compute -> update blocks", async ()
 
     await service.updateDocument("doc-1");
 
-    assert.deepEqual(fake.callOrder, ["flush", "load", "update:2"]);
+    assert.deepEqual(fake.callOrder, ["flush", "load", "update:2", "attrs:2"]);
 });
 
 test("clear flow keeps call order and clears only marker-based numbering", async () => {
@@ -61,7 +69,7 @@ test("clear flow keeps call order and clears only marker-based numbering", async
 
     await service.clearDocument("doc-1", { preservePrefix: false });
 
-    assert.deepEqual(fake.callOrder, ["flush", "load", "update:0"]);
+    assert.deepEqual(fake.callOrder, ["flush", "load", "update:0", "attrs:0"]);
 });
 
 test("clear all flow removes user-defined heading numbering", async () => {
@@ -80,10 +88,97 @@ test("clear all flow removes user-defined heading numbering", async () => {
         async updateBlocks(updates) {
             callOrder.push(`update:${Object.keys(updates).length}`);
         },
+        async updateAttrs(attrs) {
+            callOrder.push(`attrs:${Object.keys(attrs).length}`);
+        },
     };
 
     const service = createNumberingService(api, CONFIG);
     await service.clearAllNumbering("doc-1");
 
-    assert.deepEqual(callOrder, ["flush", "load", "update:1"]);
+    assert.deepEqual(callOrder, ["flush", "load", "update:1", "attrs:0"]);
+});
+
+test("update flow stores numbering state in block attrs and removes legacy markers", async () => {
+    let recordedUpdates: Record<string, string> | null = null;
+    let recordedAttrs: Record<string, Record<string, string>> | null = null;
+
+    const api: NumberingServiceApi = {
+        async getVersion() {
+            return "3.1.25";
+        },
+        async flushTransactions() {},
+        async getDocHeadingBlocks() {
+            return [
+                {
+                    id: "a",
+                    subtype: "h1",
+                    markdown: `# ${addMarker("Title A", "9. ", "")}`,
+                },
+            ];
+        },
+        async updateBlocks(updates) {
+            recordedUpdates = updates;
+        },
+        async updateAttrs(attrs) {
+            recordedAttrs = attrs;
+        },
+    };
+
+    const service = createNumberingService(api, CONFIG);
+    await service.updateDocument("doc-1");
+
+    assert.deepEqual(recordedUpdates, {
+        a: "# 1. Title A",
+    });
+    assert.deepEqual(recordedAttrs, {
+        a: {
+            [AUTO_NUMBER_ATTR]: "1. ",
+            [BACKUP_PREFIX_ATTR]: "",
+        },
+    });
+});
+
+test("clear flow removes stored attrs together with visible numbering", async () => {
+    let recordedUpdates: Record<string, string> | null = null;
+    let recordedAttrs: Record<string, Record<string, string>> | null = null;
+
+    const api: NumberingServiceApi = {
+        async getVersion() {
+            return "3.1.25";
+        },
+        async flushTransactions() {},
+        async getDocHeadingBlocks() {
+            return [
+                {
+                    id: "a",
+                    subtype: "h1",
+                    markdown: "# 1. Title A",
+                    attrs: {
+                        [AUTO_NUMBER_ATTR]: "1. ",
+                        [BACKUP_PREFIX_ATTR]: "",
+                    },
+                },
+            ];
+        },
+        async updateBlocks(updates) {
+            recordedUpdates = updates;
+        },
+        async updateAttrs(attrs) {
+            recordedAttrs = attrs;
+        },
+    };
+
+    const service = createNumberingService(api, CONFIG);
+    await service.clearDocument("doc-1", { preservePrefix: false });
+
+    assert.deepEqual(recordedUpdates, {
+        a: "# Title A",
+    });
+    assert.deepEqual(recordedAttrs, {
+        a: {
+            [AUTO_NUMBER_ATTR]: "",
+            [BACKUP_PREFIX_ATTR]: "",
+        },
+    });
 });
