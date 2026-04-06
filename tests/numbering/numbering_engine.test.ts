@@ -228,6 +228,76 @@ test("clearAutoNumbering preserves numeric title content for separator-free form
     });
 });
 
+test("planHeadingUpdates replaces visible numbering for true separator-free formats when content digest matches", () => {
+    const config: NumberingConfig = {
+        formats: ["{1}", "{1}{2}", "{1}{2}{3}", "{1}{2}{3}{4}", "{1}{2}{3}{4}{5}", "{1}{2}{3}{4}{5}{6}"],
+        useChineseNumbers: [false, false, false, false, false, false],
+    };
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 2Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, config);
+
+    assert.equal(result.updates.a, "# 1Title");
+});
+
+test("clearAutoNumbering removes visible numbering for true separator-free formats when content digest matches", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 2Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("planHeadingUpdates keeps user numeric content for true separator-free formats when content digest mismatches", () => {
+    const config: NumberingConfig = {
+        formats: ["{1}", "{1}{2}", "{1}{2}{3}", "{1}{2}{3}{4}", "{1}{2}{3}{4}{5}", "{1}{2}{3}{4}{5}{6}"],
+        useChineseNumbers: [false, false, false, false, false, false],
+    };
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 3things",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, config);
+
+    assert.equal(result.updates.a, "# 13things");
+});
+
 test("clearAutoNumbering does not strip user content when attrs are stale and content digest mismatches", () => {
     const source: HeadingBlock[] = [
         {

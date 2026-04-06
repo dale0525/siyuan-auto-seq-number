@@ -90,14 +90,51 @@ function buildNumberShapePattern(sample: string): RegExp | null {
     return pattern ? new RegExp(`^(${pattern})`, "u") : null;
 }
 
-function extractStoredNumberPrefix(text: string, sample: string): string {
+function extractSeparatorFreeNumberPrefix(
+    text: string,
+    sample: string,
+    contentDigest: string
+): string {
+    if (!text || !sample || !contentDigest) {
+        return "";
+    }
+
+    const leadingNumber = sample.match(/[0-9０-９]/u)
+        ? text.match(/^[0-9０-９]+/u)?.[0] || ""
+        : sample.match(/[一二三四五六七八九十百千万零〇两]/u)
+          ? text.match(/^[一二三四五六七八九十百千万零〇两]+/u)?.[0] || ""
+          : "";
+    if (!leadingNumber) {
+        return "";
+    }
+
+    let prefix = "";
+    for (const character of Array.from(leadingNumber)) {
+        prefix += character;
+        if (computeContentDigest(text.substring(prefix.length)) === contentDigest) {
+            return prefix;
+        }
+    }
+
+    return "";
+}
+
+function extractStoredNumberPrefix(
+    text: string,
+    sample: string,
+    contentDigest = ""
+): string {
     if (!text || !sample) {
         return "";
     }
 
     const pattern = buildNumberShapePattern(sample);
-    const match = pattern?.exec(text);
-    return match?.[1] || "";
+    if (pattern) {
+        const match = pattern.exec(text);
+        return match?.[1] || "";
+    }
+
+    return extractSeparatorFreeNumberPrefix(text, sample, contentDigest);
 }
 
 function restoreStoredContent(
@@ -109,16 +146,20 @@ function restoreStoredContent(
         return content;
     }
 
-    if (storedState.number && content.startsWith(storedState.number)) {
-        return `${storedState.backupPrefix}${content.substring(storedState.number.length)}`;
-    }
-
-    const storedPrefix = extractStoredNumberPrefix(content, storedState.number);
+    const storedPrefix = extractStoredNumberPrefix(
+        content,
+        storedState.number,
+        storedState.contentDigest
+    );
     if (storedPrefix) {
         return `${storedState.backupPrefix}${content.substring(storedPrefix.length)}`;
     }
 
-    const generatedPrefix = extractStoredNumberPrefix(content, generatedNumber);
+    const generatedPrefix = extractStoredNumberPrefix(
+        content,
+        generatedNumber,
+        storedState.contentDigest
+    );
     if (generatedPrefix) {
         return `${storedState.backupPrefix}${content.substring(generatedPrefix.length)}`;
     }
@@ -378,9 +419,11 @@ function clearVisibleNumberingFromAttrs(
         return heading.markdown;
     }
 
-    const visiblePrefix = parts.content.startsWith(storedState.number)
-        ? storedState.number
-        : extractStoredNumberPrefix(parts.content, storedState.number);
+    const visiblePrefix = extractStoredNumberPrefix(
+        parts.content,
+        storedState.number,
+        storedState.contentDigest
+    );
     if (!visiblePrefix) {
         return heading.markdown;
     }
