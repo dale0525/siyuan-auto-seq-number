@@ -1,7 +1,8 @@
 export type UpdateTrigger = "manual-toggle" | "realtime" | "load";
 
 export function shouldSyncLoadedViewAfterUpdate(
-    _trigger: UpdateTrigger
+    trigger: UpdateTrigger
 ): boolean {
+    void trigger;
     return true;
 }

@@ -9,6 +9,12 @@ import {
     planHeadingUpdates,
 } from "../../src/numbering/numbering_engine";
 import { addMarker } from "../../src/numbering/marker_codec";
+import {
+    AUTO_NUMBER_ATTR,
+    BACKUP_PREFIX_ATTR,
+    CONTENT_DIGEST_ATTR,
+    computeContentDigest,
+} from "../../src/numbering/numbering_state";
 
 const DEFAULT_CONFIG: NumberingConfig = {
     formats: [
@@ -107,4 +113,448 @@ test("clearAllHeadingNumbering removes marker-based and user-defined heading pre
     assert.equal(result.updates.e, "# 标题E");
     assert.equal(result.updates.f, "无井号标题F");
     assert.equal("d" in result.updates, false);
+});
+
+test("planHeadingUpdates replaces visible numbering even when stored attrs are stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 2. Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.a, "# 1. Title");
+});
+
+test("planHeadingUpdates keeps numeric title content when stored attrs are stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 3 things to know",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7. ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.a, "# 1. 3 things to know");
+});
+
+test("clearAutoNumbering removes visible numbering even when stored attrs are stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 2. Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("planHeadingUpdates preserves numeric title content for separator-free formats", () => {
+    const config: NumberingConfig = {
+        formats: [
+            "{1} ",
+            "{1}{2} ",
+            "{1}{2}{3} ",
+            "{1}{2}{3}{4} ",
+            "{1}{2}{3}{4}{5} ",
+            "{1}{2}{3}{4}{5}{6} ",
+        ],
+        useChineseNumbers: [false, false, false, false, false, false],
+    };
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 3 things to know",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7 ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, config);
+
+    assert.equal(result.updates.a, "# 1 3 things to know");
+});
+
+test("clearAutoNumbering preserves numeric title content for separator-free formats", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 3 things to know",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7 ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("3 things to know"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, undefined);
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("planHeadingUpdates replaces visible numbering for true separator-free formats when content digest matches", () => {
+    const config: NumberingConfig = {
+        formats: ["{1}", "{1}{2}", "{1}{2}{3}", "{1}{2}{3}{4}", "{1}{2}{3}{4}{5}", "{1}{2}{3}{4}{5}{6}"],
+        useChineseNumbers: [false, false, false, false, false, false],
+    };
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 2Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, config);
+
+    assert.equal(result.updates.a, "# 1Title");
+});
+
+test("clearAutoNumbering removes visible numbering for true separator-free formats when content digest matches", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 2Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("planHeadingUpdates keeps user numeric content for true separator-free formats when content digest mismatches", () => {
+    const config: NumberingConfig = {
+        formats: ["{1}", "{1}{2}", "{1}{2}{3}", "{1}{2}{3}{4}", "{1}{2}{3}{4}{5}", "{1}{2}{3}{4}{5}{6}"],
+        useChineseNumbers: [false, false, false, false, false, false],
+    };
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 3things",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, config);
+
+    assert.equal(result.updates.a, "# 13things");
+});
+
+test("planHeadingUpdates keeps exact leading numeric content for true separator-free formats when digest is stale", () => {
+    const config: NumberingConfig = {
+        formats: ["{1}", "{1}{2}", "{1}{2}{3}", "{1}{2}{3}{4}", "{1}{2}{3}{4}{5}", "{1}{2}{3}{4}{5}{6}"],
+        useChineseNumbers: [false, false, false, false, false, false],
+    };
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# Intro",
+        },
+        {
+            id: "b",
+            subtype: "h1",
+            markdown: "# 1st steps",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, config);
+
+    assert.equal(result.updates.b, "# 21st steps");
+});
+
+test("clearAutoNumbering removes visible numbering when stored number still matches but digest is stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1. Version notes",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, "# Version notes");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("planHeadingUpdates does not strip visible numeric title content when attrs are stale and content digest mismatches", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 3. Version notes",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.a, "# 1. 3. Version notes");
+});
+
+test("planHeadingUpdates does not strip user content when stale attrs keep a non-empty backup prefix", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# Chapter 9 News",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7. ",
+                [BACKUP_PREFIX_ATTR]: "Chapter 9 ",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.a, "# 1. Chapter 9 News");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "1.",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: computeContentDigest("Chapter 9 News"),
+    });
+});
+
+test("planHeadingUpdates replaces stale visible numbering when heading order changes after title edits", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h2",
+            markdown: "## Intro",
+        },
+        {
+            id: "b",
+            subtype: "h2",
+            markdown: "## 1. Custom Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.a, "## 1. Intro");
+    assert.equal(result.updates.b, "## 2. Custom Title");
+    assert.deepEqual(result.attrs.b, {
+        [AUTO_NUMBER_ATTR]: "2.",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: computeContentDigest("Custom Title"),
+    });
+});
+
+test("planHeadingUpdates skips unchanged headings and attrs", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1. Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.deepEqual(result.updates, {});
+    assert.deepEqual(result.attrs, {});
+});
+
+test("planHeadingUpdates stays stable when stored attrs lose trailing spaces", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1. Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1.",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.deepEqual(result.updates, {});
+    assert.deepEqual(result.attrs, {});
+});
+
+test("clearAutoNumbering removes visible numbering cleanly when stored attrs lose trailing spaces", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1. Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1.",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("clearAllHeadingNumbering removes visible numbering for true separator-free attr state", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = clearAllHeadingNumbering(source, { stateStorage: "attrs" });
+
+    assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("clearAutoNumbering removes visible numbering after title edits even when digest is stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1. Custom Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, "# Custom Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("clearAutoNumbering preserves exact leading numeric content for true separator-free formats when digest is stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 1st steps",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, undefined);
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
 });

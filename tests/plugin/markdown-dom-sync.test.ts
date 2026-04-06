@@ -9,26 +9,26 @@ import {
 
 test("extractEditableContentFromBlockDom returns editable inner html", () => {
     const html =
-        '<div data-type="NodeHeading"><div contenteditable="true"><span>Ò»¡¢±êÌâ</span></div></div>';
+        '<div data-type="NodeHeading"><div contenteditable="true"><span>ä¸€ã€æ ‡é¢˜</span></div></div>';
 
     assert.equal(
         extractEditableContentFromBlockDom(html),
-        "<span>Ò»¡¢±êÌâ</span>"
+        "<span>ä¸€ã€æ ‡é¢˜</span>"
     );
 });
 
 test("renderHeadingMarkdownToHtmlContent renders markdown through block dom renderer", () => {
     const content = renderHeadingMarkdownToHtmlContent(
-        "# **Ò»¡¢±êÌâ**",
+        "# **ä¸€ã€æ ‡é¢˜**",
         () =>
-            '<div data-type="NodeHeading"><div contenteditable="true"><strong>Ò»¡¢±êÌâ</strong></div></div>'
+            '<div data-type="NodeHeading"><div contenteditable="true"><strong>ä¸€ã€æ ‡é¢˜</strong></div></div>'
     );
 
-    assert.equal(content, "<strong>Ò»¡¢±êÌâ</strong>");
+    assert.equal(content, "<strong>ä¸€ã€æ ‡é¢˜</strong>");
 });
 
 test("renderHeadingMarkdownToHtmlContent returns null when block dom has no editable content", () => {
-    const content = renderHeadingMarkdownToHtmlContent("# ±êÌâ", () => "<div></div>");
+    const content = renderHeadingMarkdownToHtmlContent("# æ ‡é¢˜", () => "<div></div>");
 
     assert.equal(content, null);
 });
@@ -69,14 +69,21 @@ test("syncLoadedHeadingMarkdownUpdates uses batch transaction when available", (
         wysiwyg: { element: root },
         lute: {
             Md2BlockDOM(markdown: string) {
-                if (markdown.includes("µÚÒ»ÕÂ")) {
-                    return '<div data-type="NodeHeading"><div contenteditable="true"><span>1. µÚÒ»ÕÂ</span></div></div>';
+                if (markdown.includes("ç¬¬ä¸€ç« ")) {
+                    return '<div data-type="NodeHeading"><div contenteditable="true"><span>1. ç¬¬ä¸€ç« </span></div></div>';
                 }
-                return '<div data-type="NodeHeading"><div contenteditable="true"><span>1.1 µÚ¶ş½Ú</span></div></div>';
+                return '<div data-type="NodeHeading"><div contenteditable="true"><span>1.1 ç¬¬äºŒèŠ‚</span></div></div>';
             },
         },
-        updateBatchTransaction(elements: Array<typeof blockA>, updater: (element: typeof blockA) => void) {
-            calls.push(elements.map((element) => element.getAttribute("data-node-id") || ""));
+        updateBatchTransaction(
+            elements: Array<typeof blockA>,
+            updater: (element: typeof blockA) => void
+        ) {
+            calls.push(
+                elements.map(
+                    (element) => element.getAttribute("data-node-id") || ""
+                )
+            );
             for (const element of elements) {
                 updater(element);
             }
@@ -84,15 +91,15 @@ test("syncLoadedHeadingMarkdownUpdates uses batch transaction when available", (
     };
 
     const count = syncLoadedHeadingMarkdownUpdates(protyle, {
-        "block-a": "# µÚÒ»ÕÂ",
-        "block-b": "## µÚ¶ş½Ú",
-        "block-c": "### Î´¼ÓÔØ",
+        "block-a": "# ç¬¬ä¸€ç« ",
+        "block-b": "## ç¬¬äºŒèŠ‚",
+        "block-c": "### æœªåŠ è½½",
     });
 
     assert.equal(count, 2);
     assert.deepEqual(calls, [["block-a", "block-b"]]);
-    assert.equal(editableA.innerHTML, "<span>1. µÚÒ»ÕÂ</span>");
-    assert.equal(editableB.innerHTML, "<span>1.1 µÚ¶ş½Ú</span>");
+    assert.equal(editableA.innerHTML, "<span>1. ç¬¬ä¸€ç« </span>");
+    assert.equal(editableB.innerHTML, "<span>1.1 ç¬¬äºŒèŠ‚</span>");
 });
 
 test("syncLoadedHeadingMarkdownUpdates falls back to direct DOM update", () => {
@@ -123,21 +130,21 @@ test("syncLoadedHeadingMarkdownUpdates falls back to direct DOM update", () => {
         wysiwyg: { element: root },
         lute: {
             Md2BlockDOM(markdown: string) {
-                if (markdown.includes("µÚÒ»ÕÂ")) {
-                    return '<div data-type="NodeHeading"><div contenteditable="true"><span>1. µÚÒ»ÕÂ</span></div></div>';
+                if (markdown.includes("ç¬¬ä¸€ç« ")) {
+                    return '<div data-type="NodeHeading"><div contenteditable="true"><span>1. ç¬¬ä¸€ç« </span></div></div>';
                 }
-                return '<div data-type="NodeHeading"><div contenteditable="true"><span>1.1 µÚ¶ş½Ú</span></div></div>';
+                return '<div data-type="NodeHeading"><div contenteditable="true"><span>1.1 ç¬¬äºŒèŠ‚</span></div></div>';
             },
         },
     };
 
     const count = syncLoadedHeadingMarkdownUpdates(protyle, {
-        "block-a": "# µÚÒ»ÕÂ",
-        "block-b": "## µÚ¶ş½Ú",
-        "block-c": "### Î´¼ÓÔØ",
+        "block-a": "# ç¬¬ä¸€ç« ",
+        "block-b": "## ç¬¬äºŒèŠ‚",
+        "block-c": "### æœªåŠ è½½",
     });
 
     assert.equal(count, 2);
-    assert.equal(editableA.innerHTML, "<span>1. µÚÒ»ÕÂ</span>");
-    assert.equal(editableB.innerHTML, "<span>1.1 µÚ¶ş½Ú</span>");
+    assert.equal(editableA.innerHTML, "<span>1. ç¬¬ä¸€ç« </span>");
+    assert.equal(editableB.innerHTML, "<span>1.1 ç¬¬äºŒèŠ‚</span>");
 });

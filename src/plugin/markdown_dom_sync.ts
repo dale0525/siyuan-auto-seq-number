@@ -68,7 +68,8 @@ function findMatchingClosingTag(
 }
 
 function extractEditableContentWithPattern(blockDom: string): string | null {
-    const openTagPattern = /<([a-zA-Z0-9:-]+)\b[^>]*\bcontenteditable=(['"])true\2[^>]*>/i;
+    const openTagPattern =
+        /<([a-zA-Z0-9:-]+)\b[^>]*\bcontenteditable=(['"])true\2[^>]*>/i;
     const match = openTagPattern.exec(blockDom);
     if (!match || match.index < 0) {
         return null;
