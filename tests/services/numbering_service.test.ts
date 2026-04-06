@@ -404,3 +404,105 @@ test("update flow falls back to legacy markers when attribute state is unsupport
     assert.match(String(recordedUpdates?.a), /Title A/);
     assert.equal(String(recordedUpdates?.a).includes("\u2063\u2064\u2063"), true);
 });
+
+test("clear flow keeps markdown cleanup when attribute state becomes unsupported at write time", async () => {
+    let supportsAttributeState = true;
+    let recordedUpdates: Record<string, string> | null = null;
+    let attrCalls = 0;
+
+    const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return supportsAttributeState;
+        },
+        async getVersion() {
+            return "3.1.25";
+        },
+        async flushTransactions() {
+            return undefined;
+        },
+        async getDocHeadingBlocks() {
+            return [
+                {
+                    id: "a",
+                    subtype: "h1",
+                    markdown: "# 1. Title A",
+                    attrs: {
+                        [AUTO_NUMBER_ATTR]: "1. ",
+                        [BACKUP_PREFIX_ATTR]: "",
+                        [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
+                    },
+                },
+            ];
+        },
+        async updateBlocks(updates) {
+            recordedUpdates = updates;
+        },
+        async updateAttrs() {
+            attrCalls++;
+            supportsAttributeState = false;
+            throw new Error("attrs unsupported");
+        },
+    };
+
+    const service = createNumberingService(api, CONFIG);
+    const updates = await service.clearDocument("doc-1", { preservePrefix: false });
+
+    assert.equal(attrCalls, 1);
+    assert.deepEqual(updates, {
+        a: "# Title A",
+    });
+    assert.deepEqual(recordedUpdates, {
+        a: "# Title A",
+    });
+});
+
+test("clear all flow still removes visible numbering when attribute state becomes unsupported at write time", async () => {
+    let supportsAttributeState = true;
+    let recordedUpdates: Record<string, string> | null = null;
+    let attrCalls = 0;
+
+    const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return supportsAttributeState;
+        },
+        async getVersion() {
+            return "3.1.25";
+        },
+        async flushTransactions() {
+            return undefined;
+        },
+        async getDocHeadingBlocks() {
+            return [
+                {
+                    id: "a",
+                    subtype: "h1",
+                    markdown: "# 1. Title A",
+                    attrs: {
+                        [AUTO_NUMBER_ATTR]: "1. ",
+                        [BACKUP_PREFIX_ATTR]: "",
+                        [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
+                    },
+                },
+            ];
+        },
+        async updateBlocks(updates) {
+            recordedUpdates = updates;
+        },
+        async updateAttrs() {
+            attrCalls++;
+            supportsAttributeState = false;
+            throw new Error("attrs unsupported");
+        },
+    };
+
+    const service = createNumberingService(api, CONFIG);
+    const updates = await service.clearAllNumbering("doc-1");
+
+    assert.equal(attrCalls, 1);
+    assert.deepEqual(updates, {
+        a: "# Title A",
+    });
+    assert.deepEqual(recordedUpdates, {
+        a: "# Title A",
+    });
+});

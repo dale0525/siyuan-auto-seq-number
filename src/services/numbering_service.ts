@@ -28,6 +28,12 @@ export interface NumberingService {
     clearAllNumbering(docId: string): Promise<Record<string, string>>;
 }
 
+interface ApplyPlanFallbackOptions {
+    unsupportedAttrFallback?: (
+        initialPlan: NumberingPlanResult
+    ) => NumberingPlanResult;
+}
+
 function buildPreviousNumberingAttrs(
     headings: HeadingBlock[],
     nextAttrs: Record<string, Record<string, string>>
@@ -99,7 +105,8 @@ export function createNumberingService(
 
     async function applyPlanWithFallback(
         headings: HeadingBlock[],
-        buildPlan: (stateStorage: NumberingStateStorage) => NumberingPlanResult
+        buildPlan: (stateStorage: NumberingStateStorage) => NumberingPlanResult,
+        options?: ApplyPlanFallbackOptions
     ): Promise<Record<string, string>> {
         const initialStorage = api.supportsAttributeNumberingState()
             ? "attrs"
@@ -110,7 +117,9 @@ export function createNumberingService(
             return await applyNumberingPlan(headings, initialPlan, initialStorage);
         } catch (error) {
             if (initialStorage === "attrs" && !api.supportsAttributeNumberingState()) {
-                const fallbackPlan = buildPlan("marker");
+                const fallbackPlan =
+                    options?.unsupportedAttrFallback?.(initialPlan) ||
+                    buildPlan("marker");
                 return applyNumberingPlan(headings, fallbackPlan, "marker");
             }
 
@@ -139,7 +148,15 @@ export function createNumberingService(
                     preservePrefix: options.preservePrefix,
                 },
                 { stateStorage }
-            )
+            ),
+            {
+                unsupportedAttrFallback(initialPlan) {
+                    return {
+                        updates: initialPlan.updates,
+                        attrs: {},
+                    };
+                },
+            }
         );
     }
 
