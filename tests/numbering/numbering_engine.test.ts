@@ -170,3 +170,54 @@ test("clearAutoNumbering removes visible numbering even when stored attrs are st
         [BACKUP_PREFIX_ATTR]: "",
     });
 });
+
+test("planHeadingUpdates preserves numeric title content for separator-free formats", () => {
+    const config: NumberingConfig = {
+        formats: [
+            "{1} ",
+            "{1}{2} ",
+            "{1}{2}{3} ",
+            "{1}{2}{3}{4} ",
+            "{1}{2}{3}{4}{5} ",
+            "{1}{2}{3}{4}{5}{6} ",
+        ],
+        useChineseNumbers: [false, false, false, false, false, false],
+    };
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 3 things to know",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7 ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, config);
+
+    assert.equal(result.updates.a, "# 1 3 things to know");
+});
+
+test("clearAutoNumbering preserves numeric title content for separator-free formats", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 3 things to know",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7 ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, undefined);
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+    });
+});

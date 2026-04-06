@@ -36,8 +36,18 @@ function escapeRegExp(text: string): string {
     return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function hasStableNumberAnchor(sample: string): boolean {
+    return Array.from(sample).some((character) => {
+        return (
+            !/[0-9０-９]/u.test(character) &&
+            !/[一二三四五六七八九十百千万零〇两]/u.test(character) &&
+            !/\s/u.test(character)
+        );
+    });
+}
+
 function buildNumberShapePattern(sample: string): RegExp | null {
-    if (!sample) {
+    if (!sample || !hasStableNumberAnchor(sample)) {
         return null;
     }
 
