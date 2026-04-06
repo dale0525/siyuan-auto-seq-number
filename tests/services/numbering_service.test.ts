@@ -9,6 +9,8 @@ import { addMarker } from "../../src/numbering/marker_codec";
 import {
     AUTO_NUMBER_ATTR,
     BACKUP_PREFIX_ATTR,
+    CONTENT_DIGEST_ATTR,
+    computeContentDigest,
 } from "../../src/numbering/numbering_state";
 
 const CONFIG = {
@@ -30,6 +32,9 @@ function createFakeApi(): {
     const callOrder: string[] = [];
 
     const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return true;
+        },
         async getVersion() {
             return "3.1.25";
         },
@@ -69,12 +74,15 @@ test("clear flow keeps call order and clears only marker-based numbering", async
 
     await service.clearDocument("doc-1", { preservePrefix: false });
 
-    assert.deepEqual(fake.callOrder, ["flush", "load", "attrs:0", "update:0"]);
+    assert.deepEqual(fake.callOrder, ["flush", "load"]);
 });
 
 test("clear all flow removes user-defined heading numbering", async () => {
     const callOrder: string[] = [];
     const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return true;
+        },
         async getVersion() {
             return "3.1.25";
         },
@@ -96,7 +104,7 @@ test("clear all flow removes user-defined heading numbering", async () => {
     const service = createNumberingService(api, CONFIG);
     await service.clearAllNumbering("doc-1");
 
-    assert.deepEqual(callOrder, ["flush", "load", "attrs:0", "update:1"]);
+    assert.deepEqual(callOrder, ["flush", "load", "update:1"]);
 });
 
 test("update flow stores numbering state in block attrs and removes legacy markers", async () => {
@@ -104,6 +112,9 @@ test("update flow stores numbering state in block attrs and removes legacy marke
     let recordedAttrs: Record<string, Record<string, string>> | null = null;
 
     const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return true;
+        },
         async getVersion() {
             return "3.1.25";
         },
@@ -137,6 +148,7 @@ test("update flow stores numbering state in block attrs and removes legacy marke
         a: {
             [AUTO_NUMBER_ATTR]: "1. ",
             [BACKUP_PREFIX_ATTR]: "",
+            [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
         },
     });
 });
@@ -146,6 +158,9 @@ test("clear flow removes stored attrs together with visible numbering", async ()
     let recordedAttrs: Record<string, Record<string, string>> | null = null;
 
     const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return true;
+        },
         async getVersion() {
             return "3.1.25";
         },
@@ -161,6 +176,7 @@ test("clear flow removes stored attrs together with visible numbering", async ()
                     attrs: {
                         [AUTO_NUMBER_ATTR]: "1. ",
                         [BACKUP_PREFIX_ATTR]: "",
+                        [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
                     },
                 },
             ];
@@ -183,6 +199,7 @@ test("clear flow removes stored attrs together with visible numbering", async ()
         a: {
             [AUTO_NUMBER_ATTR]: "",
             [BACKUP_PREFIX_ATTR]: "",
+            [CONTENT_DIGEST_ATTR]: "",
         },
     });
 });
@@ -192,6 +209,9 @@ test("update flow clears attrs when attr write fails after partial success", asy
     const blockCalls: Array<Record<string, string>> = [];
 
     const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return true;
+        },
         async getVersion() {
             return "3.1.25";
         },
@@ -225,20 +245,24 @@ test("update flow clears attrs when attr write fails after partial success", asy
             a: {
                 [AUTO_NUMBER_ATTR]: "1. ",
                 [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
             },
             b: {
                 [AUTO_NUMBER_ATTR]: "2. ",
                 [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title B"),
             },
         },
         {
             a: {
                 [AUTO_NUMBER_ATTR]: "",
                 [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: "",
             },
             b: {
                 [AUTO_NUMBER_ATTR]: "",
                 [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: "",
             },
         },
     ]);
@@ -248,6 +272,9 @@ test("update flow restores previous attrs when block write fails", async () => {
     const attrCalls: Array<Record<string, Record<string, string>>> = [];
 
     const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return true;
+        },
         async getVersion() {
             return "3.1.25";
         },
@@ -263,6 +290,7 @@ test("update flow restores previous attrs when block write fails", async () => {
                     attrs: {
                         [AUTO_NUMBER_ATTR]: "3. ",
                         [BACKUP_PREFIX_ATTR]: "",
+                        [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
                     },
                 },
             ];
@@ -287,13 +315,92 @@ test("update flow restores previous attrs when block write fails", async () => {
             a: {
                 [AUTO_NUMBER_ATTR]: "1. ",
                 [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
             },
         },
         {
             a: {
                 [AUTO_NUMBER_ATTR]: "3. ",
                 [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
             },
         },
     ]);
+});
+
+test("update flow skips attr and block writes when document is already up to date", async () => {
+    const callOrder: string[] = [];
+    const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return true;
+        },
+        async getVersion() {
+            return "3.1.25";
+        },
+        async flushTransactions() {
+            callOrder.push("flush");
+        },
+        async getDocHeadingBlocks() {
+            callOrder.push("load");
+            return [
+                {
+                    id: "a",
+                    subtype: "h1",
+                    markdown: "# 1. Title A",
+                    attrs: {
+                        [AUTO_NUMBER_ATTR]: "1. ",
+                        [BACKUP_PREFIX_ATTR]: "",
+                        [CONTENT_DIGEST_ATTR]: computeContentDigest("Title A"),
+                    },
+                },
+            ];
+        },
+        async updateBlocks(updates) {
+            callOrder.push(`update:${Object.keys(updates).length}`);
+        },
+        async updateAttrs(attrs) {
+            callOrder.push(`attrs:${Object.keys(attrs).length}`);
+        },
+    };
+
+    const service = createNumberingService(api, CONFIG);
+    const updates = await service.updateDocument("doc-1");
+
+    assert.deepEqual(updates, {});
+    assert.deepEqual(callOrder, ["flush", "load"]);
+});
+
+test("update flow falls back to legacy markers when attribute state is unsupported", async () => {
+    let recordedUpdates: Record<string, string> | null = null;
+    let attrCalls = 0;
+
+    const api: NumberingServiceApi = {
+        supportsAttributeNumberingState() {
+            return false;
+        },
+        async getVersion() {
+            return "3.1.25";
+        },
+        async flushTransactions() {
+            return undefined;
+        },
+        async getDocHeadingBlocks() {
+            return [{ id: "a", subtype: "h1", markdown: "# Title A" }];
+        },
+        async updateBlocks(updates) {
+            recordedUpdates = updates;
+        },
+        async updateAttrs() {
+            attrCalls++;
+        },
+    };
+
+    const service = createNumberingService(api, CONFIG);
+    await service.updateDocument("doc-1");
+
+    assert.equal(attrCalls, 0);
+    assert.equal(typeof recordedUpdates?.a, "string");
+    assert.match(String(recordedUpdates?.a), /^# 1\. /);
+    assert.match(String(recordedUpdates?.a), /Title A/);
+    assert.equal(String(recordedUpdates?.a).includes("\u2063\u2064\u2063"), true);
 });

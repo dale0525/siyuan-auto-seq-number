@@ -320,6 +320,67 @@ function createFakeFetchWithAttrBatchRace() {
     };
 }
 
+function createFakeFetchWithoutHeadingAttrs() {
+    const calls: IFetchCall[] = [];
+
+    const fakeFetch: typeof fetch = (async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+    ) => {
+        const url = String(input);
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        calls.push({ url, body });
+
+        if (url === "/api/query/sql") {
+            const stmt = String((body as { stmt?: unknown })?.stmt || "");
+            if (stmt.includes("ial")) {
+                return new Response(
+                    JSON.stringify({
+                        code: -1,
+                        msg: "no such column: ial",
+                        data: null,
+                    }),
+                    { status: 200 }
+                );
+            }
+
+            return new Response(
+                JSON.stringify({
+                    code: 0,
+                    msg: "",
+                    data: [{ id: "a", markdown: "# A", subtype: "h1" }],
+                }),
+                { status: 200 }
+            );
+        }
+
+        if (url === "/api/attr/setBlockAttrs") {
+            return new Response(
+                JSON.stringify({
+                    code: -1,
+                    msg: "attrs unsupported",
+                    data: null,
+                }),
+                { status: 200 }
+            );
+        }
+
+        return new Response(
+            JSON.stringify({
+                code: 0,
+                msg: "",
+                data: null,
+            }),
+            { status: 200 }
+        );
+    }) as typeof fetch;
+
+    return {
+        calls,
+        fetch: fakeFetch,
+    };
+}
+
 test("updateBlocks always uses batchUpdateBlock even when version < 3.1.25", async () => {
     const fake = createFakeFetch("3.1.24");
     const api = createSiyuanApi(fake.fetch);
@@ -476,4 +537,33 @@ test("flushTransactions is best-effort when endpoint is unavailable", async () =
         (call) => call.url === "/api/sqlite/flushTransaction"
     );
     assert.equal(called, true);
+});
+
+test("getDocHeadingBlocks falls back when ial column is unavailable", async () => {
+    const fake = createFakeFetchWithoutHeadingAttrs();
+    const api = createSiyuanApi(fake.fetch);
+
+    const blocks = await api.getDocHeadingBlocks("doc-id");
+
+    assert.equal(blocks.length, 1);
+    assert.deepEqual(blocks[0].attrs, {});
+    assert.equal(api.supportsAttributeNumberingState(), false);
+});
+
+test("updateAttrs marks attribute numbering state unsupported when endpoint fails", async () => {
+    const fake = createFakeFetchWithoutHeadingAttrs();
+    const api = createSiyuanApi(fake.fetch);
+
+    await assert.rejects(
+        () =>
+            api.updateAttrs({
+                a: {
+                    "custom-auto-seq-number": "1. ",
+                    "custom-auto-seq-number-backup-prefix": "",
+                },
+            }),
+        /unsupported/
+    );
+
+    assert.equal(api.supportsAttributeNumberingState(), false);
 });

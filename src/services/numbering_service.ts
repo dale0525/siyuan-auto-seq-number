@@ -3,6 +3,8 @@ import {
     clearAutoNumbering,
     HeadingBlock,
     NumberingConfig,
+    NumberingPlanResult,
+    NumberingStateStorage,
     planHeadingUpdates,
 } from "../numbering/numbering_engine";
 import { SiyuanApi } from "../infra/siyuan_api";
@@ -57,18 +59,32 @@ export function createNumberingService(
 
     async function applyNumberingPlan(
         headings: HeadingBlock[],
-        result: {
-            updates: Record<string, string>;
-            attrs: Record<string, Record<string, string>>;
-        }
+        result: NumberingPlanResult,
+        stateStorage: NumberingStateStorage
     ): Promise<Record<string, string>> {
+        if (stateStorage === "marker") {
+            await api.updateBlocks(result.updates, "markdown");
+            return result.updates;
+        }
+
+        if (
+            Object.keys(result.updates).length === 0 &&
+            Object.keys(result.attrs).length === 0
+        ) {
+            return result.updates;
+        }
+
         const previousAttrs = buildPreviousNumberingAttrs(headings, result.attrs);
 
-        try {
-            await api.updateAttrs(result.attrs);
-        } catch (error) {
-            await rollbackAttrs(previousAttrs);
-            throw error;
+        if (Object.keys(result.attrs).length > 0) {
+            try {
+                await api.updateAttrs(result.attrs);
+            } catch (error) {
+                if (api.supportsAttributeNumberingState()) {
+                    await rollbackAttrs(previousAttrs);
+                }
+                throw error;
+            }
         }
 
         try {
@@ -81,11 +97,33 @@ export function createNumberingService(
         return result.updates;
     }
 
+    async function applyPlanWithFallback(
+        headings: HeadingBlock[],
+        buildPlan: (stateStorage: NumberingStateStorage) => NumberingPlanResult
+    ): Promise<Record<string, string>> {
+        const initialStorage = api.supportsAttributeNumberingState()
+            ? "attrs"
+            : "marker";
+        const initialPlan = buildPlan(initialStorage);
+
+        try {
+            return await applyNumberingPlan(headings, initialPlan, initialStorage);
+        } catch (error) {
+            if (initialStorage === "attrs" && !api.supportsAttributeNumberingState()) {
+                const fallbackPlan = buildPlan("marker");
+                return applyNumberingPlan(headings, fallbackPlan, "marker");
+            }
+
+            throw error;
+        }
+    }
+
     async function updateDocument(docId: string): Promise<Record<string, string>> {
         await api.flushTransactions();
         const headings = await api.getDocHeadingBlocks(docId);
-        const result = planHeadingUpdates(headings, config);
-        return applyNumberingPlan(headings, result);
+        return applyPlanWithFallback(headings, (stateStorage) =>
+            planHeadingUpdates(headings, config, { stateStorage })
+        );
     }
 
     async function clearDocument(
@@ -94,17 +132,23 @@ export function createNumberingService(
     ): Promise<Record<string, string>> {
         await api.flushTransactions();
         const headings = await api.getDocHeadingBlocks(docId);
-        const result = clearAutoNumbering(headings, {
-            preservePrefix: options.preservePrefix,
-        });
-        return applyNumberingPlan(headings, result);
+        return applyPlanWithFallback(headings, (stateStorage) =>
+            clearAutoNumbering(
+                headings,
+                {
+                    preservePrefix: options.preservePrefix,
+                },
+                { stateStorage }
+            )
+        );
     }
 
     async function clearAllNumbering(docId: string): Promise<Record<string, string>> {
         await api.flushTransactions();
         const headings = await api.getDocHeadingBlocks(docId);
-        const result = clearAllHeadingNumbering(headings);
-        return applyNumberingPlan(headings, result);
+        return applyPlanWithFallback(headings, (stateStorage) =>
+            clearAllHeadingNumbering(headings, { stateStorage })
+        );
     }
 
     return {

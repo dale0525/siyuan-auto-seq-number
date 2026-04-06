@@ -19,6 +19,28 @@ interface IHeadingAttrsPayload {
     [key: string]: string;
 }
 
+class SiyuanApiRequestError extends Error {
+    path: string;
+    status: number;
+    code: number | null;
+    apiMessage: string;
+
+    constructor(
+        path: string,
+        message: string,
+        status: number,
+        code: number | null = null,
+        apiMessage = ""
+    ) {
+        super(message);
+        this.name = "SiyuanApiRequestError";
+        this.path = path;
+        this.status = status;
+        this.code = code;
+        this.apiMessage = apiMessage;
+    }
+}
+
 const ATTR_UPDATE_CONCURRENCY = 8;
 
 export interface SiyuanApi {
@@ -30,6 +52,7 @@ export interface SiyuanApi {
         dataType: BlockDataType
     ): Promise<void>;
     updateAttrs(attrs: Record<string, Record<string, string>>): Promise<void>;
+    supportsAttributeNumberingState(): boolean;
 }
 
 async function requestApi<T>(
@@ -46,12 +69,22 @@ async function requestApi<T>(
     });
 
     if (!response.ok) {
-        throw new Error(`SiYuan API request failed: ${path}`);
+        throw new SiyuanApiRequestError(
+            path,
+            `SiYuan API request failed: ${path}`,
+            response.status
+        );
     }
 
     const json = (await response.json()) as ISiyuanApiResponse<T>;
     if (json.code !== 0) {
-        throw new Error(`SiYuan API returned error: ${path} ${json.msg}`);
+        throw new SiyuanApiRequestError(
+            path,
+            `SiYuan API returned error: ${path} ${json.msg}`,
+            response.status,
+            json.code,
+            json.msg
+        );
     }
     return json.data;
 }
@@ -76,6 +109,23 @@ function parseInlineAttrs(ial: string | undefined): Record<string, string> {
     }
 
     return attrs;
+}
+
+function isIalColumnUnsupported(error: unknown): boolean {
+    return (
+        error instanceof SiyuanApiRequestError &&
+        error.path === "/api/query/sql" &&
+        /ial/i.test(error.apiMessage)
+    );
+}
+
+function isAttrEndpointUnsupported(error: unknown): boolean {
+    return (
+        error instanceof SiyuanApiRequestError &&
+        error.path === "/api/attr/setBlockAttrs" &&
+        (error.status === 404 ||
+            /unsupported|not found|unknown|unrecognized/i.test(error.apiMessage))
+    );
 }
 
 async function updateBlocksBatch(
@@ -127,8 +177,23 @@ async function updateAttrsBatch(
     }
 }
 
+async function queryDocHeadingRows(
+    fetchImpl: typeof fetch,
+    docId: string,
+    includeIal: boolean
+): Promise<ISqlHeadingRow[]> {
+    const escapedDocId = escapeSqlString(docId);
+    const columns = includeIal ? "id, markdown, subtype, ial" : "id, markdown, subtype";
+    const sql = `select ${columns} from blocks where root_id = '${escapedDocId}' and subtype in ('h1','h2','h3','h4','h5','h6') order by sort asc`;
+
+    return requestApi<ISqlHeadingRow[]>(fetchImpl, "/api/query/sql", {
+        stmt: sql,
+    });
+}
+
 export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
     let versionCache: string | null = null;
+    let supportsAttributeState = true;
 
     async function getVersion(): Promise<string> {
         if (versionCache) {
@@ -147,11 +212,21 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
     }
 
     async function getDocHeadingBlocks(docId: string): Promise<HeadingBlock[]> {
-        const escapedDocId = escapeSqlString(docId);
-        const sql = `select id, markdown, subtype, ial from blocks where root_id = '${escapedDocId}' and subtype in ('h1','h2','h3','h4','h5','h6') order by sort asc`;
-        const rows = await requestApi<ISqlHeadingRow[]>(fetchImpl, "/api/query/sql", {
-            stmt: sql,
-        });
+        let rows: ISqlHeadingRow[];
+
+        if (supportsAttributeState) {
+            try {
+                rows = await queryDocHeadingRows(fetchImpl, docId, true);
+            } catch (error) {
+                if (!isIalColumnUnsupported(error)) {
+                    throw error;
+                }
+                supportsAttributeState = false;
+                rows = await queryDocHeadingRows(fetchImpl, docId, false);
+            }
+        } else {
+            rows = await queryDocHeadingRows(fetchImpl, docId, false);
+        }
 
         return rows
             .filter((row) => typeof row.id === "string")
@@ -159,7 +234,7 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
                 id: row.id,
                 markdown: row.markdown || "",
                 subtype: row.subtype || "",
-                attrs: parseInlineAttrs(row.ial),
+                attrs: supportsAttributeState ? parseInlineAttrs(row.ial) : {},
             }));
     }
 
@@ -177,7 +252,22 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
     async function updateAttrs(
         attrs: Record<string, Record<string, string>>
     ): Promise<void> {
-        await updateAttrsBatch(fetchImpl, attrs);
+        if (!supportsAttributeState || Object.keys(attrs).length === 0) {
+            return;
+        }
+
+        try {
+            await updateAttrsBatch(fetchImpl, attrs);
+        } catch (error) {
+            if (isAttrEndpointUnsupported(error)) {
+                supportsAttributeState = false;
+            }
+            throw error;
+        }
+    }
+
+    function supportsAttributeNumberingState(): boolean {
+        return supportsAttributeState;
     }
 
     return {
@@ -186,5 +276,6 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
         getDocHeadingBlocks,
         updateBlocks,
         updateAttrs,
+        supportsAttributeNumberingState,
     };
 }

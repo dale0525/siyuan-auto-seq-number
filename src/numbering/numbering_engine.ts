@@ -1,7 +1,8 @@
 import { splitHeadingLine } from "./heading_line";
-import { readMarker, stripMarker } from "./marker_codec";
+import { addMarker, readMarker, stripMarker } from "./marker_codec";
 import {
     buildNumberingStateAttrs,
+    computeContentDigest,
     NumberingState,
     readNumberingState,
 } from "./numbering_state";
@@ -28,8 +29,20 @@ export interface ClearNumberingOptions {
     preservePrefix: boolean;
 }
 
+export type NumberingStateStorage = "attrs" | "marker";
+
+export interface NumberingPlanOptions {
+    stateStorage?: NumberingStateStorage;
+}
+
 function resolveStoredState(block: HeadingBlock): NumberingState | null {
     return readNumberingState(block.attrs);
+}
+
+function resolveStateStorage(
+    options?: NumberingPlanOptions
+): NumberingStateStorage {
+    return options?.stateStorage || "attrs";
 }
 
 function escapeRegExp(text: string): string {
@@ -246,10 +259,44 @@ function extractLegacyPrefix(text: string, number: string): string {
     return "";
 }
 
+function hasStateChanged(
+    block: HeadingBlock,
+    nextState: NumberingState | null
+): boolean {
+    const currentState = buildNumberingStateAttrs(resolveStoredState(block));
+    const targetState = buildNumberingStateAttrs(nextState);
+
+    return Object.keys(targetState).some((key) => currentState[key] !== targetState[key]);
+}
+
+function buildNextState(number: string, backupPrefix: string, content: string): NumberingState {
+    return {
+        number,
+        backupPrefix,
+        contentDigest: computeContentDigest(content),
+    };
+}
+
+function buildUpdatedMarkdown(
+    prefix: string,
+    number: string,
+    content: string,
+    backupPrefix: string,
+    stateStorage: NumberingStateStorage
+): string {
+    if (stateStorage === "marker") {
+        return `${prefix}${addMarker(content, number, backupPrefix)}`;
+    }
+
+    return `${prefix}${number}${content}`;
+}
+
 export function planHeadingUpdates(
     headings: HeadingBlock[],
-    config: NumberingConfig
+    config: NumberingConfig,
+    options?: NumberingPlanOptions
 ): NumberingPlanResult {
+    const stateStorage = resolveStateStorage(options);
     const updates: Record<string, string> = {};
     const attrs: Record<string, Record<string, string>> = {};
     const counters = [0, 0, 0, 0, 0, 0];
@@ -298,21 +345,66 @@ export function planHeadingUpdates(
             backupPrefix && restoredContent.startsWith(backupPrefix)
                 ? restoredContent.substring(backupPrefix.length)
                 : restoredContent;
-
-        updates[heading.id] = `${parts.prefix}${number}${contentWithoutPrefix}`;
-        attrs[heading.id] = buildNumberingStateAttrs({
+        const nextMarkdown = buildUpdatedMarkdown(
+            parts.prefix,
             number,
+            contentWithoutPrefix,
             backupPrefix,
-        });
+            stateStorage
+        );
+
+        if (nextMarkdown !== heading.markdown) {
+            updates[heading.id] = nextMarkdown;
+        }
+
+        if (stateStorage === "attrs") {
+            const nextState = buildNextState(number, backupPrefix, contentWithoutPrefix);
+            if (hasStateChanged(heading, nextState)) {
+                attrs[heading.id] = buildNumberingStateAttrs(nextState);
+            }
+        }
     }
 
     return { updates, attrs };
 }
 
+function clearVisibleNumberingFromAttrs(
+    heading: HeadingBlock,
+    storedState: NumberingState,
+    options: ClearNumberingOptions
+): string {
+    const parts = parseHeadingContent(heading);
+    if (!parts || !storedState.number) {
+        return heading.markdown;
+    }
+
+    const visiblePrefix = parts.content.startsWith(storedState.number)
+        ? storedState.number
+        : extractStoredNumberPrefix(parts.content, storedState.number);
+    if (!visiblePrefix) {
+        return heading.markdown;
+    }
+
+    const content = parts.content.substring(visiblePrefix.length);
+    if (
+        !storedState.contentDigest ||
+        computeContentDigest(content) !== storedState.contentDigest
+    ) {
+        return heading.markdown;
+    }
+
+    const mergedContent = options.preservePrefix
+        ? `${storedState.backupPrefix}${content}`
+        : content;
+    return `${parts.prefix}${mergedContent}`;
+}
+
 export function clearAutoNumbering(
     headings: HeadingBlock[],
-    options: ClearNumberingOptions
+    options: ClearNumberingOptions,
+    planOptions?: NumberingPlanOptions
 ): NumberingPlanResult {
+    const stateStorage = resolveStateStorage(planOptions);
     const updates: Record<string, string> = {};
     const attrs: Record<string, Record<string, string>> = {};
 
@@ -324,42 +416,29 @@ export function clearAutoNumbering(
         const finalRestored =
             restored !== heading.markdown
                 ? restored
-                : (() => {
-                      const parts = parseHeadingContent(heading);
-                      if (!parts || !storedState || !storedState.number) {
-                          return heading.markdown;
-                      }
-
-                      const visiblePrefix =
-                          parts.content.startsWith(storedState.number)
-                              ? storedState.number
-                              : extractStoredNumberPrefix(
-                                    parts.content,
-                                    storedState.number
-                                );
-                      if (!visiblePrefix) {
-                          return heading.markdown;
-                      }
-
-                      const content = parts.content.substring(visiblePrefix.length);
-                      const mergedContent = options.preservePrefix
-                          ? `${storedState.backupPrefix}${content}`
-                          : content;
-                      return `${parts.prefix}${mergedContent}`;
-                  })();
+                : stateStorage === "attrs" && storedState
+                  ? clearVisibleNumberingFromAttrs(heading, storedState, options)
+                  : heading.markdown;
 
         if (finalRestored !== heading.markdown) {
             updates[heading.id] = finalRestored;
         }
-        if (storedState || restored !== heading.markdown) {
-            attrs[heading.id] = buildNumberingStateAttrs(null);
+
+        if (stateStorage === "attrs" && (storedState || restored !== heading.markdown)) {
+            if (hasStateChanged(heading, null)) {
+                attrs[heading.id] = buildNumberingStateAttrs(null);
+            }
         }
     }
 
     return { updates, attrs };
 }
 
-export function clearAllHeadingNumbering(headings: HeadingBlock[]): NumberingPlanResult {
+export function clearAllHeadingNumbering(
+    headings: HeadingBlock[],
+    options?: NumberingPlanOptions
+): NumberingPlanResult {
+    const stateStorage = resolveStateStorage(options);
     const updates: Record<string, string> = {};
     const attrs: Record<string, Record<string, string>> = {};
 
@@ -379,8 +458,10 @@ export function clearAllHeadingNumbering(headings: HeadingBlock[]): NumberingPla
             updates[heading.id] = restoredMarkdown;
         }
 
-        if (resolveStoredState(heading)) {
-            attrs[heading.id] = buildNumberingStateAttrs(null);
+        if (stateStorage === "attrs" && resolveStoredState(heading)) {
+            if (hasStateChanged(heading, null)) {
+                attrs[heading.id] = buildNumberingStateAttrs(null);
+            }
         }
     }
 
