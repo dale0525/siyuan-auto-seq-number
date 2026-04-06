@@ -240,6 +240,86 @@ function createFakeFetchWithBatchFailure(version = "3.1.25") {
     };
 }
 
+function createFakeFetchWithAttrBatchRace() {
+    const calls: IFetchCall[] = [];
+    let resolvedA = false;
+    let resolvedB = false;
+
+    const fakeFetch: typeof fetch = (async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+    ) => {
+        const url = String(input);
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        calls.push({ url, body });
+
+        if (url !== "/api/attr/setBlockAttrs") {
+            return new Response(
+                JSON.stringify({
+                    code: 0,
+                    msg: "",
+                    data: null,
+                }),
+                { status: 200 }
+            );
+        }
+
+        const id = String((body as { id?: unknown })?.id || "");
+        if (id === "a") {
+            return new Promise<Response>((resolve) => {
+                setTimeout(() => {
+                    resolvedA = true;
+                    resolve(
+                        new Response(
+                            JSON.stringify({
+                                code: -1,
+                                msg: "attr failed",
+                                data: null,
+                            }),
+                            { status: 200 }
+                        )
+                    );
+                }, 0);
+            });
+        }
+
+        if (id === "b") {
+            return new Promise<Response>((resolve) => {
+                setTimeout(() => {
+                    resolvedB = true;
+                    resolve(
+                        new Response(
+                            JSON.stringify({
+                                code: 0,
+                                msg: "",
+                                data: null,
+                            }),
+                            { status: 200 }
+                        )
+                    );
+                }, 10);
+            });
+        }
+
+        return new Response(
+            JSON.stringify({
+                code: 0,
+                msg: "",
+                data: null,
+            }),
+            { status: 200 }
+        );
+    }) as typeof fetch;
+
+    return {
+        calls,
+        fetch: fakeFetch,
+        getResolvedState() {
+            return { resolvedA, resolvedB };
+        },
+    };
+}
+
 test("updateBlocks always uses batchUpdateBlock even when version < 3.1.25", async () => {
     const fake = createFakeFetch("3.1.24");
     const api = createSiyuanApi(fake.fetch);
@@ -350,6 +430,31 @@ test("updateAttrs writes block attrs one block at a time", async () => {
             "custom-auto-seq-number": "1. ",
             "custom-auto-seq-number-backup-prefix": "",
         },
+    });
+});
+
+test("updateAttrs waits for the whole batch before rejecting", async () => {
+    const fake = createFakeFetchWithAttrBatchRace();
+    const api = createSiyuanApi(fake.fetch);
+
+    await assert.rejects(
+        () =>
+            api.updateAttrs({
+                a: {
+                    "custom-auto-seq-number": "1. ",
+                    "custom-auto-seq-number-backup-prefix": "",
+                },
+                b: {
+                    "custom-auto-seq-number": "2. ",
+                    "custom-auto-seq-number-backup-prefix": "",
+                },
+            }),
+        /attr failed/
+    );
+
+    assert.deepEqual(fake.getResolvedState(), {
+        resolvedA: true,
+        resolvedB: true,
     });
 });
 

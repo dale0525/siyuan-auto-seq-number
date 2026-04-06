@@ -109,7 +109,7 @@ async function updateAttrsBatch(
         startIndex += ATTR_UPDATE_CONCURRENCY
     ) {
         const batch = entries.slice(startIndex, startIndex + ATTR_UPDATE_CONCURRENCY);
-        await Promise.all(
+        const results = await Promise.allSettled(
             batch.map(([id, blockAttrs]) =>
                 requestApi<unknown>(fetchImpl, "/api/attr/setBlockAttrs", {
                     id,
@@ -117,6 +117,13 @@ async function updateAttrsBatch(
                 })
             )
         );
+
+        const rejected = results.find(
+            (result): result is PromiseRejectedResult => result.status === "rejected"
+        );
+        if (rejected) {
+            throw rejected.reason;
+        }
     }
 }
 

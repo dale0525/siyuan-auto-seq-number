@@ -32,9 +32,55 @@ function resolveStoredState(block: HeadingBlock): NumberingState | null {
     return readNumberingState(block.attrs);
 }
 
+function escapeRegExp(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildNumberShapePattern(sample: string): RegExp | null {
+    if (!sample) {
+        return null;
+    }
+
+    let pattern = "";
+    let index = 0;
+    while (index < sample.length) {
+        const digitMatch = sample.slice(index).match(/^[0-9０-９]+/u);
+        if (digitMatch) {
+            pattern += "[0-9０-９]+";
+            index += digitMatch[0].length;
+            continue;
+        }
+
+        const chineseMatch = sample
+            .slice(index)
+            .match(/^[一二三四五六七八九十百千万零〇两]+/u);
+        if (chineseMatch) {
+            pattern += "[一二三四五六七八九十百千万零〇两]+";
+            index += chineseMatch[0].length;
+            continue;
+        }
+
+        pattern += escapeRegExp(sample[index]);
+        index++;
+    }
+
+    return pattern ? new RegExp(`^(${pattern})`, "u") : null;
+}
+
+function extractStoredNumberPrefix(text: string, sample: string): string {
+    if (!text || !sample) {
+        return "";
+    }
+
+    const pattern = buildNumberShapePattern(sample);
+    const match = pattern?.exec(text);
+    return match?.[1] || "";
+}
+
 function restoreStoredContent(
     content: string,
-    storedState: NumberingState | null
+    storedState: NumberingState | null,
+    generatedNumber: string
 ): string {
     if (!storedState) {
         return content;
@@ -44,9 +90,14 @@ function restoreStoredContent(
         return `${storedState.backupPrefix}${content.substring(storedState.number.length)}`;
     }
 
-    const strippedContent = stripHeadingNumberPrefix(content);
-    if (strippedContent !== content) {
-        return `${storedState.backupPrefix}${strippedContent}`;
+    const storedPrefix = extractStoredNumberPrefix(content, storedState.number);
+    if (storedPrefix) {
+        return `${storedState.backupPrefix}${content.substring(storedPrefix.length)}`;
+    }
+
+    const generatedPrefix = extractStoredNumberPrefix(content, generatedNumber);
+    if (generatedPrefix) {
+        return `${storedState.backupPrefix}${content.substring(generatedPrefix.length)}`;
     }
 
     return content;
@@ -228,7 +279,7 @@ export function planHeadingUpdates(
         const storedState = resolveStoredState(heading);
         const restoredContent = markerInfo
             ? `${markerInfo.backupPrefix}${markerInfo.content}`
-            : restoreStoredContent(parts.content, storedState);
+            : restoreStoredContent(parts.content, storedState, number);
         const backupPrefix =
             markerInfo?.backupPrefix ||
             storedState?.backupPrefix ||
@@ -269,12 +320,18 @@ export function clearAutoNumbering(
                           return heading.markdown;
                       }
 
-                      const hasVisibleNumber = parts.content.startsWith(storedState.number);
-                      if (!hasVisibleNumber) {
+                      const visiblePrefix =
+                          parts.content.startsWith(storedState.number)
+                              ? storedState.number
+                              : extractStoredNumberPrefix(
+                                    parts.content,
+                                    storedState.number
+                                );
+                      if (!visiblePrefix) {
                           return heading.markdown;
                       }
 
-                      const content = parts.content.substring(storedState.number.length);
+                      const content = parts.content.substring(visiblePrefix.length);
                       const mergedContent = options.preservePrefix
                           ? `${storedState.backupPrefix}${content}`
                           : content;

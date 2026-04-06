@@ -130,3 +130,43 @@ test("planHeadingUpdates replaces visible numbering even when stored attrs are s
 
     assert.equal(result.updates.a, "# 1. Title");
 });
+
+test("planHeadingUpdates keeps numeric title content when stored attrs are stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 3 things to know",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "7. ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.a, "# 1. 3 things to know");
+});
+
+test("clearAutoNumbering removes visible numbering even when stored attrs are stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 2. Title",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+    });
+});
