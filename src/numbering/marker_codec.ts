@@ -251,3 +251,37 @@ export function stripMarker(
         result.content.slice(insertIndex)
     );
 }
+
+export function stripLegacyMarkerArtifacts(text: string): string {
+    if (!text) {
+        return text;
+    }
+
+    let cleaned = text;
+    let rounds = 0;
+
+    while (rounds < 20) {
+        const markerStartIndex = cleaned.indexOf(MARKER_START);
+        if (markerStartIndex < 0) {
+            break;
+        }
+
+        const markerEndIndex = cleaned.indexOf(
+            MARKER_END,
+            markerStartIndex + MARKER_START.length
+        );
+        if (markerEndIndex < 0) {
+            break;
+        }
+
+        cleaned =
+            cleaned.slice(0, markerStartIndex) +
+            cleaned.slice(markerEndIndex + MARKER_END.length);
+        rounds++;
+    }
+
+    return cleaned.replace(/^[\u200b-\u200d\u2063\u2064]+/u, "").replace(
+        /[\u200b-\u200d\u2063\u2064]+$/u,
+        ""
+    );
+}

@@ -28,6 +28,9 @@ const DEFAULT_CONFIG: NumberingConfig = {
     useChineseNumbers: [false, false, false, false, false, false],
 };
 
+const MALFORMED_MARKER =
+    "\u2063\u2064\u2063\u200c\u200c\u200d\u200c\u2064\u2063\u2064";
+
 function toBlocksFromUpdates(
     source: HeadingBlock[],
     updates: Record<string, string>
@@ -533,6 +536,66 @@ test("clearAutoNumbering removes visible numbering after title edits even when d
         [BACKUP_PREFIX_ATTR]: "",
         [CONTENT_DIGEST_ATTR]: "",
     });
+});
+
+test("planHeadingUpdates strips malformed legacy marker artifacts during attr migration", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: `# Title${MALFORMED_MARKER}`,
+            attrs: {},
+        },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.a, "# 1. Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "1.",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+    });
+});
+
+test("clearAutoNumbering removes malformed legacy marker artifacts after attr migration", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: `# 1. Title${MALFORMED_MARKER}`,
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "1. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("clearAllHeadingNumbering removes malformed legacy marker artifacts without attr state", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: `# 1. Title${MALFORMED_MARKER}`,
+            attrs: {},
+        },
+    ];
+
+    const result = clearAllHeadingNumbering(source, { stateStorage: "attrs" });
+
+    assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs, {});
 });
 
 test("clearAutoNumbering preserves exact leading numeric content for true separator-free formats when digest is stale", () => {
