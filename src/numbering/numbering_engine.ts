@@ -1,5 +1,10 @@
 import { splitHeadingLine } from "./heading_line";
-import { addMarker, readMarker, stripMarker } from "./marker_codec";
+import {
+    addMarker,
+    readMarker,
+    stripLegacyMarkerArtifacts,
+    stripMarker,
+} from "./marker_codec";
 import {
     buildNumberingStateAttrs,
     computeContentDigest,
@@ -449,12 +454,15 @@ export function planHeadingUpdates(
         const number = generateNumberFromFormat(format, counters, useChinese);
 
         const markerInfo = readMarker(parts.content);
+        const sanitizedContent = stripLegacyMarkerArtifacts(parts.content);
         const storedState = resolveStoredState(heading);
         const restoredState = markerInfo
             ? null
-            : restoreStoredContent(parts.content, storedState, number);
+            : restoreStoredContent(sanitizedContent, storedState, number);
         const restoredContent = markerInfo
-            ? `${markerInfo.backupPrefix}${markerInfo.content}`
+            ? stripLegacyMarkerArtifacts(
+                  `${markerInfo.backupPrefix}${markerInfo.content}`
+              )
             : restoredState.content;
         const backupPrefix =
             markerInfo?.backupPrefix ||
@@ -497,22 +505,23 @@ function clearVisibleNumberingFromAttrs(
         return heading.markdown;
     }
 
+    const sanitizedContent = stripLegacyMarkerArtifacts(parts.content);
     const visiblePrefix = extractStoredNumberPrefix(
-        parts.content,
+        sanitizedContent,
         storedState.number,
         storedState.contentDigest
     );
     const exactStoredPrefix = extractExactVisibleNumberPrefix(
-        parts.content,
+        sanitizedContent,
         storedState.number
     );
     const visibleExactPrefix = expandVisibleExactPrefix(
-        parts.content,
+        sanitizedContent,
         storedState.number,
         exactStoredPrefix
     );
     const exactContent = visibleExactPrefix
-        ? parts.content.substring(visibleExactPrefix.length)
+        ? sanitizedContent.substring(visibleExactPrefix.length)
         : "";
     const exactDigestMatches = visibleExactPrefix
         ? contentMatchesStoredDigest(exactContent, storedState.contentDigest)
@@ -523,10 +532,12 @@ function clearVisibleNumberingFromAttrs(
         : "";
     const matchedPrefix = trustedExactPrefix || visiblePrefix;
     if (!matchedPrefix) {
-        return heading.markdown;
+        return sanitizedContent === parts.content
+            ? heading.markdown
+            : `${parts.prefix}${sanitizedContent}`;
     }
 
-    const content = parts.content.substring(matchedPrefix.length);
+    const content = sanitizedContent.substring(matchedPrefix.length);
     const digestMatches =
         matchedPrefix === trustedExactPrefix
             ? exactDigestMatches
@@ -556,12 +567,29 @@ export function clearAutoNumbering(
         const restored = stripMarker(heading.markdown, {
             restorePrefix: options.preservePrefix,
         });
+        const sanitizedHeading =
+            restored === heading.markdown
+                ? heading
+                : {
+                      ...heading,
+                      markdown: restored,
+                  };
+        const markerCleanedHeading =
+            stripLegacyMarkerArtifacts(sanitizedHeading.markdown) ===
+            sanitizedHeading.markdown
+                ? sanitizedHeading
+                : {
+                      ...sanitizedHeading,
+                      markdown: stripLegacyMarkerArtifacts(sanitizedHeading.markdown),
+                  };
         const finalRestored =
-            restored !== heading.markdown
-                ? restored
-                : stateStorage === "attrs" && storedState
-                  ? clearVisibleNumberingFromAttrs(heading, storedState, options)
-                  : heading.markdown;
+            stateStorage === "attrs" && storedState
+                ? clearVisibleNumberingFromAttrs(
+                      markerCleanedHeading,
+                      storedState,
+                      options
+                  )
+                : markerCleanedHeading.markdown;
 
         if (finalRestored !== heading.markdown) {
             updates[heading.id] = finalRestored;
@@ -604,7 +632,9 @@ export function clearAllHeadingNumbering(
         const withoutMarker = stripMarker(parts.content, {
             restorePrefix: false,
         });
-        const cleanedContent = stripHeadingNumberPrefix(withoutMarker);
+        const cleanedContent = stripHeadingNumberPrefix(
+            stripLegacyMarkerArtifacts(withoutMarker)
+        );
         const restoredMarkdown = `${parts.prefix}${cleanedContent}`;
 
         if (restoredMarkdown !== heading.markdown) {
