@@ -319,68 +319,6 @@ function createFakeFetchWithKramdownOrder(version = "3.5.5") {
     };
 }
 
-function createFakeFetchForMarkdownBridge() {
-    const calls: IFetchCall[] = [];
-
-    const fakeFetch: typeof fetch = (async (
-        input: RequestInfo | URL,
-        init?: RequestInit
-    ) => {
-        const url = String(input);
-        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
-        calls.push({ url, body });
-
-        if (url === "/api/block/updateBlock") {
-            const payload = body as {
-                id?: string;
-                dataType?: string;
-                data?: string;
-            };
-            if (payload.dataType === "markdown") {
-                return new Response(
-                    JSON.stringify({
-                        code: 0,
-                        msg: "",
-                        data: [
-                            {
-                                doOperations: [
-                                    {
-                                        data: `<div data-node-id="${payload.id}">rendered:${payload.data}</div>`,
-                                    },
-                                ],
-                            },
-                        ],
-                    }),
-                    { status: 200 }
-                );
-            }
-
-            return new Response(
-                JSON.stringify({
-                    code: 0,
-                    msg: "",
-                    data: null,
-                }),
-                { status: 200 }
-            );
-        }
-
-        return new Response(
-            JSON.stringify({
-                code: 0,
-                msg: "",
-                data: null,
-            }),
-            { status: 200 }
-        );
-    }) as typeof fetch;
-
-    return {
-        calls,
-        fetch: fakeFetch,
-    };
-}
-
 function createFakeFetchWithAttrBatchRace() {
     const calls: IFetchCall[] = [];
     let resolvedA = false;
@@ -562,8 +500,8 @@ test("updateBlocks uses batchUpdateBlock for dom updates when version >= 3.1.25"
     assert.equal(calledBatch.length, 1);
 });
 
-test("updateBlocks bridges markdown updates through rendered DOM operations", async () => {
-    const fake = createFakeFetchForMarkdownBridge();
+test("updateBlocks sends markdown updates directly without DOM bridge", async () => {
+    const fake = createFakeFetch();
     const api = createSiyuanApi(fake.fetch);
 
     await api.updateBlocks(
@@ -574,16 +512,20 @@ test("updateBlocks bridges markdown updates through rendered DOM operations", as
     );
 
     const updateCalls = fake.calls.filter((call) => call.url === "/api/block/updateBlock");
-    assert.equal(updateCalls.length, 2);
-    assert.deepEqual(updateCalls[0].body, {
-        id: "a",
+    const batchCalls = fake.calls.filter(
+        (call) => call.url === "/api/block/batchUpdateBlock"
+    );
+
+    assert.equal(updateCalls.length, 0);
+    assert.equal(batchCalls.length, 1);
+    assert.deepEqual(batchCalls[0].body, {
         dataType: "markdown",
-        data: "# 1. Title A",
-    });
-    assert.deepEqual(updateCalls[1].body, {
-        id: "a",
-        dataType: "dom",
-        data: '<div data-node-id="a">rendered:# 1. Title A</div>',
+        data: [
+            {
+                id: "a",
+                data: "# 1. Title A",
+            },
+        ],
     });
 });
 

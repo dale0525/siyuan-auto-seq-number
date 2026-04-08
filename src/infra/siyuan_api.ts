@@ -24,14 +24,6 @@ interface IHeadingAttrsPayload {
     [key: string]: string;
 }
 
-interface IUpdateBlockOperation {
-    data?: string;
-}
-
-interface IUpdateBlockResult {
-    doOperations?: IUpdateBlockOperation[];
-}
-
 class SiyuanApiRequestError extends Error {
     path: string;
     status: number;
@@ -157,48 +149,6 @@ async function updateBlocksBatch(
         dataType,
         data,
     });
-}
-
-async function requestSingleBlockUpdate<T>(
-    fetchImpl: typeof fetch,
-    id: string,
-    data: string,
-    dataType: BlockDataType
-): Promise<T> {
-    return requestApi<T>(fetchImpl, "/api/block/updateBlock", {
-        id,
-        data,
-        dataType,
-    });
-}
-
-async function renderMarkdownAsDom(
-    fetchImpl: typeof fetch,
-    id: string,
-    markdown: string
-): Promise<string> {
-    const result = await requestSingleBlockUpdate<IUpdateBlockResult[]>(
-        fetchImpl,
-        id,
-        markdown,
-        "markdown"
-    );
-    const dom = result[0]?.doOperations?.[0]?.data;
-    if (!dom) {
-        throw new Error(`SiYuan API did not return rendered DOM for block: ${id}`);
-    }
-
-    return dom;
-}
-
-async function updateBlocksViaRenderedDom(
-    fetchImpl: typeof fetch,
-    updates: Record<string, string>
-): Promise<void> {
-    for (const [id, markdown] of Object.entries(updates)) {
-        const renderedDom = await renderMarkdownAsDom(fetchImpl, id, markdown);
-        await requestSingleBlockUpdate<unknown>(fetchImpl, id, renderedDom, "dom");
-    }
 }
 
 async function updateAttrsBatch(
@@ -365,11 +315,6 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
         dataType: BlockDataType
     ): Promise<void> {
         if (Object.keys(updates).length === 0) {
-            return;
-        }
-
-        if (dataType === "markdown") {
-            await updateBlocksViaRenderedDom(fetchImpl, updates);
             return;
         }
 
