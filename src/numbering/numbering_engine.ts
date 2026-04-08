@@ -361,6 +361,7 @@ function extractLegacyPrefix(text: string, number: string): string {
     }
 
     const candidates = buildLegacyNumberCandidates(number);
+    const trimmedNumber = number.replace(/\s+$/, "");
     for (const candidate of candidates) {
         if (!candidate || !text.startsWith(candidate)) {
             continue;
@@ -373,6 +374,9 @@ function extractLegacyPrefix(text: string, number: string): string {
         const spaceMatch = rest.match(/^\s+/);
         if (spaceMatch) {
             return candidate + spaceMatch[0];
+        }
+        if (candidate.length < trimmedNumber.length) {
+            continue;
         }
         return candidate;
     }

@@ -154,6 +154,17 @@ test("planHeadingUpdates keeps numeric title content when stored attrs are stale
     assert.equal(result.updates.a, "# 1. 3 things to know");
 });
 
+test("planHeadingUpdates does not treat plain numeric title content as an existing separated prefix", () => {
+    const source: HeadingBlock[] = [
+        { id: "a", subtype: "h1", markdown: "# Intro" },
+        { id: "b", subtype: "h1", markdown: "# 234" },
+    ];
+
+    const result = planHeadingUpdates(source, DEFAULT_CONFIG);
+
+    assert.equal(result.updates.b, "# 2. 234");
+});
+
 test("clearAutoNumbering removes visible numbering even when stored attrs are stale", () => {
     const source: HeadingBlock[] = [
         {
