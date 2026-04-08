@@ -1,4 +1,5 @@
 import { HeadingBlock } from "../numbering/numbering_engine";
+import { compareVersion } from "../utils/version_utils";
 
 type BlockDataType = "markdown" | "dom";
 
@@ -24,14 +25,6 @@ interface IHeadingAttrsPayload {
     [key: string]: string;
 }
 
-interface IUpdateBlockOperation {
-    data?: string;
-}
-
-interface IUpdateBlockResult {
-    doOperations?: IUpdateBlockOperation[];
-}
-
 class SiyuanApiRequestError extends Error {
     path: string;
     status: number;
@@ -55,6 +48,13 @@ class SiyuanApiRequestError extends Error {
 }
 
 const ATTR_UPDATE_CONCURRENCY = 8;
+export const MIN_MARKDOWN_BATCH_UPDATE_APP_VERSION = "3.1.25";
+
+function buildUnsupportedMarkdownBatchVersionError(version: string): Error {
+    return new Error(
+        `Markdown batch updates require SiYuan >= ${MIN_MARKDOWN_BATCH_UPDATE_APP_VERSION}, received ${version}.`
+    );
+}
 
 export interface SiyuanApi {
     getVersion(): Promise<string>;
@@ -157,48 +157,6 @@ async function updateBlocksBatch(
         dataType,
         data,
     });
-}
-
-async function requestSingleBlockUpdate<T>(
-    fetchImpl: typeof fetch,
-    id: string,
-    data: string,
-    dataType: BlockDataType
-): Promise<T> {
-    return requestApi<T>(fetchImpl, "/api/block/updateBlock", {
-        id,
-        data,
-        dataType,
-    });
-}
-
-async function renderMarkdownAsDom(
-    fetchImpl: typeof fetch,
-    id: string,
-    markdown: string
-): Promise<string> {
-    const result = await requestSingleBlockUpdate<IUpdateBlockResult[]>(
-        fetchImpl,
-        id,
-        markdown,
-        "markdown"
-    );
-    const dom = result[0]?.doOperations?.[0]?.data;
-    if (!dom) {
-        throw new Error(`SiYuan API did not return rendered DOM for block: ${id}`);
-    }
-
-    return dom;
-}
-
-async function updateBlocksViaRenderedDom(
-    fetchImpl: typeof fetch,
-    updates: Record<string, string>
-): Promise<void> {
-    for (const [id, markdown] of Object.entries(updates)) {
-        const renderedDom = await renderMarkdownAsDom(fetchImpl, id, markdown);
-        await requestSingleBlockUpdate<unknown>(fetchImpl, id, renderedDom, "dom");
-    }
 }
 
 async function updateAttrsBatch(
@@ -369,8 +327,15 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
         }
 
         if (dataType === "markdown") {
-            await updateBlocksViaRenderedDom(fetchImpl, updates);
-            return;
+            const version = await getVersion();
+            if (
+                compareVersion(
+                    version,
+                    MIN_MARKDOWN_BATCH_UPDATE_APP_VERSION
+                ) < 0
+            ) {
+                throw buildUnsupportedMarkdownBatchVersionError(version);
+            }
         }
 
         await updateBlocksBatch(fetchImpl, updates, dataType);
