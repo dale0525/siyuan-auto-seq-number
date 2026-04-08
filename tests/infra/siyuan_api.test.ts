@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
-import { createSiyuanApi } from "../../src/infra/siyuan_api";
+import {
+    createSiyuanApi,
+    MIN_MARKDOWN_BATCH_UPDATE_APP_VERSION,
+} from "../../src/infra/siyuan_api";
+import { compareVersion } from "../../src/utils/version_utils";
 
 type IFetchCall = {
     url: string;
@@ -527,6 +533,21 @@ test("updateBlocks sends markdown updates directly without DOM bridge", async ()
             },
         ],
     });
+});
+
+test("plugin manifest keeps minimum app version aligned with direct markdown batch updates", () => {
+    const manifestPath = path.resolve(process.cwd(), "plugin.json");
+    const manifest = JSON.parse(
+        readFileSync(manifestPath, "utf8")
+    ) as { minAppVersion?: string };
+
+    assert.equal(
+        compareVersion(
+            manifest.minAppVersion || "0.0.0",
+            MIN_MARKDOWN_BATCH_UPDATE_APP_VERSION
+        ) >= 0,
+        true
+    );
 });
 
 test("flushTransactions calls /api/sqlite/flushTransaction", async () => {

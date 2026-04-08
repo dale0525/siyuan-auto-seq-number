@@ -47,6 +47,7 @@ class SiyuanApiRequestError extends Error {
 }
 
 const ATTR_UPDATE_CONCURRENCY = 8;
+export const MIN_MARKDOWN_BATCH_UPDATE_APP_VERSION = "3.1.25";
 
 export interface SiyuanApi {
     getVersion(): Promise<string>;
@@ -318,6 +319,8 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
             return;
         }
 
+        // Direct markdown batch writes rely on the plugin manifest requiring
+        // SiYuan versions that support /api/block/batchUpdateBlock for markdown.
         await updateBlocksBatch(fetchImpl, updates, dataType);
     }
 
