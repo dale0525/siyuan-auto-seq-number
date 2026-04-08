@@ -165,6 +165,30 @@ test("planHeadingUpdates does not treat plain numeric title content as an existi
     assert.equal(result.updates.b, "# 2. 234");
 });
 
+test("clearAutoNumbering keeps plain numeric title content when stored attrs are stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 234",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "2. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = clearAutoNumbering(source, { preservePrefix: false });
+
+    assert.equal(result.updates.a, undefined);
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
 test("clearAutoNumbering removes visible numbering even when stored attrs are stale", () => {
     const source: HeadingBlock[] = [
         {
@@ -338,6 +362,27 @@ test("planHeadingUpdates keeps exact leading numeric content for true separator-
     const result = planHeadingUpdates(source, config);
 
     assert.equal(result.updates.b, "# 21st steps");
+});
+
+test("planHeadingUpdates keeps chinese numeric title content when stored attrs are stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 二三四",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "二、 ",
+                [BACKUP_PREFIX_ATTR]: "",
+            },
+        },
+    ];
+
+    const result = planHeadingUpdates(source, {
+        formats: ["{1}、 ", "{1}.{2} ", "{1}.{2}.{3} ", "{1}.{2}.{3}.{4} ", "{1}.{2}.{3}.{4}.{5} ", "{1}.{2}.{3}.{4}.{5}.{6} "],
+        useChineseNumbers: [true, false, false, false, false, false],
+    });
+
+    assert.equal(result.updates.a, "# 一、 二三四");
 });
 
 test("clearAutoNumbering removes visible numbering when stored number still matches but digest is stale", () => {
@@ -518,6 +563,30 @@ test("clearAllHeadingNumbering removes visible numbering for true separator-free
     const result = clearAllHeadingNumbering(source, { stateStorage: "attrs" });
 
     assert.equal(result.updates.a, "# Title");
+    assert.deepEqual(result.attrs.a, {
+        [AUTO_NUMBER_ATTR]: "",
+        [BACKUP_PREFIX_ATTR]: "",
+        [CONTENT_DIGEST_ATTR]: "",
+    });
+});
+
+test("clearAllHeadingNumbering keeps plain numeric title content when stored attrs are stale", () => {
+    const source: HeadingBlock[] = [
+        {
+            id: "a",
+            subtype: "h1",
+            markdown: "# 234",
+            attrs: {
+                [AUTO_NUMBER_ATTR]: "2. ",
+                [BACKUP_PREFIX_ATTR]: "",
+                [CONTENT_DIGEST_ATTR]: computeContentDigest("Different title"),
+            },
+        },
+    ];
+
+    const result = clearAllHeadingNumbering(source, { stateStorage: "attrs" });
+
+    assert.equal(result.updates.a, undefined);
     assert.deepEqual(result.attrs.a, {
         [AUTO_NUMBER_ATTR]: "",
         [BACKUP_PREFIX_ATTR]: "",
