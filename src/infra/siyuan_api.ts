@@ -1,4 +1,5 @@
 import { HeadingBlock } from "../numbering/numbering_engine";
+import { compareVersion } from "../utils/version_utils";
 
 type BlockDataType = "markdown" | "dom";
 
@@ -48,6 +49,12 @@ class SiyuanApiRequestError extends Error {
 
 const ATTR_UPDATE_CONCURRENCY = 8;
 export const MIN_MARKDOWN_BATCH_UPDATE_APP_VERSION = "3.1.25";
+
+function buildUnsupportedMarkdownBatchVersionError(version: string): Error {
+    return new Error(
+        `Markdown batch updates require SiYuan >= ${MIN_MARKDOWN_BATCH_UPDATE_APP_VERSION}, received ${version}.`
+    );
+}
 
 export interface SiyuanApi {
     getVersion(): Promise<string>;
@@ -319,8 +326,18 @@ export function createSiyuanApi(fetchImpl: typeof fetch = fetch): SiyuanApi {
             return;
         }
 
-        // Direct markdown batch writes rely on the plugin manifest requiring
-        // SiYuan versions that support /api/block/batchUpdateBlock for markdown.
+        if (dataType === "markdown") {
+            const version = await getVersion();
+            if (
+                compareVersion(
+                    version,
+                    MIN_MARKDOWN_BATCH_UPDATE_APP_VERSION
+                ) < 0
+            ) {
+                throw buildUnsupportedMarkdownBatchVersionError(version);
+            }
+        }
+
         await updateBlocksBatch(fetchImpl, updates, dataType);
     }
 

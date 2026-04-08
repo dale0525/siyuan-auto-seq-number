@@ -506,8 +506,32 @@ test("updateBlocks uses batchUpdateBlock for dom updates when version >= 3.1.25"
     assert.equal(calledBatch.length, 1);
 });
 
-test("updateBlocks sends markdown updates directly without DOM bridge", async () => {
-    const fake = createFakeFetch();
+test("updateBlocks rejects markdown batch updates on unsupported SiYuan versions", async () => {
+    const fake = createFakeFetch("3.1.24");
+    const api = createSiyuanApi(fake.fetch);
+
+    await assert.rejects(
+        () =>
+            api.updateBlocks(
+                {
+                    a: "# 1. Title A",
+                },
+                "markdown"
+            ),
+        /Markdown batch updates require SiYuan >= 3\.1\.25, received 3\.1\.24\./i
+    );
+
+    const updateCalls = fake.calls.filter((call) => call.url === "/api/block/updateBlock");
+    const batchCalls = fake.calls.filter(
+        (call) => call.url === "/api/block/batchUpdateBlock"
+    );
+
+    assert.equal(updateCalls.length, 0);
+    assert.equal(batchCalls.length, 0);
+});
+
+test("updateBlocks sends markdown updates directly on supported SiYuan versions", async () => {
+    const fake = createFakeFetch("3.1.25");
     const api = createSiyuanApi(fake.fetch);
 
     await api.updateBlocks(
