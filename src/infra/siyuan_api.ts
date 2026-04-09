@@ -148,14 +148,14 @@ async function updateBlocksBatch(
     updates: Record<string, string>,
     dataType: BlockDataType
 ): Promise<void> {
-    const data = Object.entries(updates).map(([id, content]) => ({
+    const blocks = Object.entries(updates).map(([id, content]) => ({
         id,
         data: content,
+        dataType,
     }));
 
     await requestApi<unknown>(fetchImpl, "/api/block/batchUpdateBlock", {
-        dataType,
-        data,
+        blocks,
     });
 }
 

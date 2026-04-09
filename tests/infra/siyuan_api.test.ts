@@ -484,6 +484,20 @@ test("updateBlocks uses batchUpdateBlock for dom updates even when version < 3.1
     );
     assert.equal(calledUpdate.length, 0);
     assert.equal(calledBatch.length, 1);
+    assert.deepEqual(calledBatch[0].body, {
+        blocks: [
+            {
+                id: "a",
+                data: "# A",
+                dataType: "dom",
+            },
+            {
+                id: "b",
+                data: "## B",
+                dataType: "dom",
+            },
+        ],
+    });
 });
 
 test("updateBlocks uses batchUpdateBlock for dom updates when version >= 3.1.25", async () => {
@@ -549,11 +563,11 @@ test("updateBlocks sends markdown updates directly on supported SiYuan versions"
     assert.equal(updateCalls.length, 0);
     assert.equal(batchCalls.length, 1);
     assert.deepEqual(batchCalls[0].body, {
-        dataType: "markdown",
-        data: [
+        blocks: [
             {
                 id: "a",
                 data: "# 1. Title A",
+                dataType: "markdown",
             },
         ],
     });
