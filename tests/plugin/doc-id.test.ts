@@ -24,3 +24,33 @@ test("resolveDocId falls back to block rootID", () => {
 
     assert.equal(docId, "doc-root");
 });
+
+test("resolveDocId reads wrapped protyle document ids", () => {
+    assert.equal(
+        resolveDocId({
+            protyle: {
+                block: {
+                    rootID: "doc-wrapper",
+                },
+            },
+        }),
+        "doc-wrapper"
+    );
+
+    assert.equal(
+        resolveDocId({
+            model: {
+                editor: {
+                    protyle: {
+                        background: {
+                            ial: {
+                                id: "doc-nested",
+                            },
+                        },
+                    },
+                },
+            },
+        }),
+        "doc-nested"
+    );
+});
