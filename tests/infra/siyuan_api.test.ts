@@ -149,6 +149,70 @@ function createFakeFetchTypeSensitive(version = "3.1.25") {
     };
 }
 
+function createFakeFetchWithSqlDefaultLimit(totalRows = 70) {
+    const calls: IFetchCall[] = [];
+    const rows = Array.from({ length: totalRows }, (_, index) => ({
+        id: `h${index + 1}`,
+        markdown: `# H${index + 1}`,
+        subtype: "h1",
+        ial: "",
+    }));
+
+    const fakeFetch: typeof fetch = (async (
+        input: RequestInfo | URL,
+        init?: RequestInit
+    ) => {
+        const url = String(input);
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        calls.push({ url, body });
+
+        if (url === "/api/query/sql") {
+            const stmt = String((body as { stmt?: unknown })?.stmt || "");
+            const limitMatch = stmt.match(/\blimit\s+(\d+)/i);
+            const offsetMatch = stmt.match(/\boffset\s+(\d+)/i);
+            const limit = limitMatch ? Number.parseInt(limitMatch[1], 10) : 64;
+            const offset = offsetMatch ? Number.parseInt(offsetMatch[1], 10) : 0;
+
+            return new Response(
+                JSON.stringify({
+                    code: 0,
+                    msg: "",
+                    data: rows.slice(offset, offset + limit),
+                }),
+                { status: 200 }
+            );
+        }
+
+        if (url === "/api/block/getBlockKramdown") {
+            return new Response(
+                JSON.stringify({
+                    code: 0,
+                    msg: "",
+                    data: {
+                        id: "doc-id",
+                        kramdown: "",
+                    },
+                }),
+                { status: 200 }
+            );
+        }
+
+        return new Response(
+            JSON.stringify({
+                code: 0,
+                msg: "",
+                data: null,
+            }),
+            { status: 200 }
+        );
+    }) as typeof fetch;
+
+    return {
+        calls,
+        fetch: fakeFetch,
+    };
+}
+
 function createFakeFetchFlushUnsupported(version = "3.1.25") {
     const calls: IFetchCall[] = [];
 
@@ -633,6 +697,16 @@ test("getDocHeadingBlocks returns heading rows", async () => {
         ["a", "b"]
     );
     assert.equal(blocks[0].attrs?.["custom-auto-seq-number"], "1. ");
+});
+
+test("getDocHeadingBlocks reads beyond SiYuan SQL default row cap", async () => {
+    const fake = createFakeFetchWithSqlDefaultLimit(70);
+    const api = createSiyuanApi(fake.fetch);
+
+    const blocks = await api.getDocHeadingBlocks("doc-id");
+
+    assert.equal(blocks.length, 70);
+    assert.equal(blocks[69].id, "h70");
 });
 
 test("updateAttrs writes block attrs one block at a time", async () => {

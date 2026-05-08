@@ -48,6 +48,7 @@ class SiyuanApiRequestError extends Error {
 }
 
 const ATTR_UPDATE_CONCURRENCY = 8;
+const HEADING_QUERY_PAGE_SIZE = 512;
 export const MIN_MARKDOWN_BATCH_UPDATE_APP_VERSION = "3.1.25";
 
 function buildUnsupportedMarkdownBatchVersionError(version: string): Error {
@@ -192,18 +193,41 @@ async function updateAttrsBatch(
     }
 }
 
+async function queryDocHeadingRowsPage(
+    fetchImpl: typeof fetch,
+    docId: string,
+    includeIal: boolean,
+    offset: number
+): Promise<ISqlHeadingRow[]> {
+    const escapedDocId = escapeSqlString(docId);
+    const columns = includeIal ? "id, markdown, subtype, ial" : "id, markdown, subtype";
+    const sql = `select ${columns} from blocks where root_id = '${escapedDocId}' and subtype in ('h1','h2','h3','h4','h5','h6') order by sort asc, id asc limit ${HEADING_QUERY_PAGE_SIZE} offset ${offset}`;
+
+    return requestApi<ISqlHeadingRow[]>(fetchImpl, "/api/query/sql", {
+        stmt: sql,
+    });
+}
+
 async function queryDocHeadingRows(
     fetchImpl: typeof fetch,
     docId: string,
     includeIal: boolean
 ): Promise<ISqlHeadingRow[]> {
-    const escapedDocId = escapeSqlString(docId);
-    const columns = includeIal ? "id, markdown, subtype, ial" : "id, markdown, subtype";
-    const sql = `select ${columns} from blocks where root_id = '${escapedDocId}' and subtype in ('h1','h2','h3','h4','h5','h6') order by sort asc`;
+    const rows: ISqlHeadingRow[] = [];
 
-    return requestApi<ISqlHeadingRow[]>(fetchImpl, "/api/query/sql", {
-        stmt: sql,
-    });
+    for (let offset = 0; ; offset += HEADING_QUERY_PAGE_SIZE) {
+        const page = await queryDocHeadingRowsPage(
+            fetchImpl,
+            docId,
+            includeIal,
+            offset
+        );
+        rows.push(...page);
+
+        if (page.length < HEADING_QUERY_PAGE_SIZE) {
+            return rows;
+        }
+    }
 }
 
 function reorderHeadingRowsByKramdown(
