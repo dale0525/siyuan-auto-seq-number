@@ -6,6 +6,7 @@ import {
     buildDomClearUpdates,
     buildDomNumberingUpdates,
 } from "../../src/plugin/dom_heading_fallback";
+import { getHeaderLevel } from "../../src/utils/header_utils";
 
 const CONFIG = {
     formats: [
@@ -64,4 +65,19 @@ test("buildDomClearAllUpdates removes user-defined numbering", () => {
     assert.equal(updates.a, "一级标题1");
     assert.equal(updates.b, "二级标题1");
     assert.equal("c" in updates, false);
+});
+
+test("getHeaderLevel reads data-subtype when heading class is absent", () => {
+    const element = {
+        classList: {
+            contains() {
+                return false;
+            },
+        },
+        getAttribute(name: string) {
+            return name === "data-subtype" ? "h3" : null;
+        },
+    } as unknown as Element;
+
+    assert.equal(getHeaderLevel(element), 3);
 });

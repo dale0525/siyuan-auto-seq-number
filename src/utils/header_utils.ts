@@ -185,10 +185,16 @@ export function removeHeaderNumber(text: string, format: string): string {
  * @returns 标题级别（1-6），如果不是标题则返回0
  */
 export function getHeaderLevel(element: Element): number {
+    const subtype = element.getAttribute("data-subtype") || "";
+    const subtypeMatch = subtype.match(/^h([1-6])$/);
+    if (subtypeMatch) {
+        return Number.parseInt(subtypeMatch[1], 10);
+    }
+
     for (let i = 1; i <= 6; i++) {
         if (element.classList.contains(`h${i}`)) {
             return i;
         }
     }
     return 0;
-} 
+}
